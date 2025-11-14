@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session
 from datetime import datetime, timedelta
 from backend.database import get_db
 from backend.models import User
+from backend.models.user import LicenseType
 from backend.schemas import UserCreate, UserLogin, Token, UserResponse
 from backend.utils.auth import verify_password, get_password_hash, create_access_token
 from backend.dependencies import get_current_user
@@ -39,7 +40,7 @@ async def register(user_data: UserCreate, db: Session = Depends(get_db)):
         username=user_data.username,
         password_hash=hashed_password,
         full_name=user_data.full_name,
-        license_type=User.LicenseType.FREE,
+        license_type=LicenseType.FREE,
     )
     
     db.add(new_user)
