@@ -1,107 +1,107 @@
 # DSBP - Development Software Board Platform
 
-DSBP是一个基于Web的软件开发管理流程软件，类似于Kanban看板系统。它提供了任务分解板（Task Decomposition Board）功能，帮助团队协作管理项目任务。
+DSBP is a web-based software development management workflow platform, similar to a Kanban board system. It provides Task Decomposition Board functionality to help teams collaborate and manage project tasks.
 
-## 主要特性
+## Key Features
 
-- ✅ **用户认证和许可证管理**
-  - 免费用户可以使用3个任务板（Task Board）
-  - 付费用户无限制使用任务板
-  - 基于JWT的认证系统
+- ✅ **User Authentication and License Management**
+  - Free users can use up to 3 task boards
+  - Paid users have unlimited task boards
+  - JWT-based authentication system
 
-- ✅ **项目空间管理**
-  - 创建和管理项目
-  - 通过Email邀请团队成员加入项目空间
-  - 项目成员权限管理
+- ✅ **Project Space Management**
+  - Create and manage projects
+  - Invite team members to project spaces via email
+  - Project member permission management
 
-- ✅ **任务分解板（Task Decomposition Board）**
-  - 三个状态：TODO、In Progress、DONE
-  - 在同一项目空间内的用户可以添加、删除和更新任务
-  - 任务可以分配给团队成员
+- ✅ **Task Decomposition Board**
+  - Three states: TODO, In Progress, DONE
+  - Users within the same project space can add, delete, and update tasks
+  - Tasks can be assigned to team members
 
-- ✅ **PostgreSQL数据库**
-  - 完整的用户信息管理
-  - 项目、任务板、任务数据持久化
+- ✅ **PostgreSQL Database**
+  - Complete user information management
+  - Persistent storage for projects, task boards, and tasks
 
-- ✅ **清晰的用户界面**
-  - 基于React的现代化前端
-  - 响应式设计
+- ✅ **Clean User Interface**
+  - Modern React-based frontend
+  - Responsive design
 
-## 技术栈
+## Tech Stack
 
-### 后端
+### Backend
 - **Python 3.9+**
-- **FastAPI** - 现代、快速的Web框架
+- **FastAPI** - Modern, fast web framework
 - **SQLAlchemy** - ORM
-- **PostgreSQL** - 数据库
-- **Alembic** - 数据库迁移
-- **JWT** - 认证
+- **PostgreSQL** - Database
+- **Alembic** - Database migrations
+- **JWT** - Authentication
 
-### 前端
+### Frontend
 - **React 18**
-- **Vite** - 构建工具
-- **Redux** - 状态管理
-- **React Router** - 路由
+- **Vite** - Build tool
+- **Redux** - State management
+- **React Router** - Routing
 
-## 项目结构
+## Project Structure
 
 ```
 DSBP/
-├── backend/                 # Python后端
-│   ├── api/                 # API路由
-│   │   └── v1/              # API v1版本
-│   ├── models/               # 数据库模型
+├── backend/                 # Python backend
+│   ├── api/                 # API routes
+│   │   └── v1/              # API v1 version
+│   ├── models/               # Database models
 │   ├── schemas/              # Pydantic schemas
-│   ├── utils/                # 工具函数
-│   ├── db/                   # 数据库工具
-│   ├── config.py             # 配置
-│   ├── database.py           # 数据库连接
-│   └── main.py               # 应用入口
-├── client/                   # React前端
+│   ├── utils/                # Utility functions
+│   ├── db/                   # Database utilities
+│   ├── config.py             # Configuration
+│   ├── database.py           # Database connection
+│   └── main.py               # Application entry point
+├── client/                   # React frontend
 │   └── src/
-│       ├── api/              # API客户端
-│       ├── components/       # React组件
+│       ├── api/              # API client
+│       ├── components/       # React components
 │       └── ...
-├── alembic/                  # 数据库迁移
-├── requirements.txt          # Python依赖
-├── env.example               # 环境变量示例
-└── README.md                 # 本文档
+├── alembic/                  # Database migrations
+├── requirements.txt          # Python dependencies
+├── env.example               # Environment variables example
+└── README.md                 # This document
 ```
 
-## 安装和配置
+## Installation and Configuration
 
-### 前置要求
+### Prerequisites
 
-- Python 3.9 或更高版本
-- Node.js 16 或更高版本
-- PostgreSQL 12 或更高版本
-- npm 或 yarn
+- Python 3.9 or higher
+- Node.js 16 or higher
+- PostgreSQL 12 or higher
+- npm or yarn
 
-### 1. 克隆项目
+### 1. Clone the Project
 
 ```bash
 cd DSBP
 ```
 
-### 2. 设置Python环境
+### 2. Set Up Python Environment
 
 ```bash
-# 创建虚拟环境
+# Create virtual environment
 python -m venv venv
 
-# 激活虚拟环境
+# Activate virtual environment
 # Windows:
 venv\Scripts\activate
 # Linux/Mac:
 source venv/bin/activate
 
-# 安装依赖
+# Install dependencies
 pip install -r requirements.txt
 ```
 
-### 3. 配置数据库
+### 3. Configure Database
 
-创建PostgreSQL数据库：
+Create PostgreSQL database:
 
 ```sql
 CREATE DATABASE dsbp_db;
@@ -109,28 +109,28 @@ CREATE USER dsbp_user WITH PASSWORD 'dsbp_password';
 GRANT ALL PRIVILEGES ON DATABASE dsbp_db TO dsbp_user;
 ```
 
-### 4. 配置环境变量
+### 4. Configure Environment Variables
 
-复制环境变量示例文件：
+Copy the environment variables example file:
 
 ```bash
 cp env.example .env
 ```
 
-编辑 `.env` 文件，设置以下配置：
+Edit the `.env` file and set the following configuration:
 
 ```env
-# 数据库配置
+# Database Configuration
 DATABASE_URL=postgresql://dsbp_user:dsbp_password@localhost:5432/dsbp_db
 
-# JWT密钥（生产环境请使用强密钥）
+# JWT Secret Key (use a strong key in production)
 JWT_SECRET_KEY=your-secret-key-change-this-in-production
 
-# 应用配置
+# Application Configuration
 DEBUG=True
 CORS_ORIGINS=http://localhost:3000,http://localhost:5173
 
-# Email配置（用于发送邀请）
+# Email Configuration (for sending invitations)
 SMTP_HOST=smtp.gmail.com
 SMTP_PORT=587
 SMTP_USER=your-email@gmail.com
@@ -138,247 +138,247 @@ SMTP_PASSWORD=your-app-password
 SMTP_FROM_EMAIL=noreply@dsbp.com
 ```
 
-### 5. 初始化数据库
+### 5. Initialize Database
 
 ```bash
-# 创建数据库表
+# Create database tables
 python -m backend.db.init_db
 
-# 创建管理员用户（可选）
+# Create admin user (optional)
 python -m backend.db.create_admin admin@example.com admin password123
 ```
 
-### 6. 设置前端
+### 6. Set Up Frontend
 
 ```bash
 cd client
 
-# 安装依赖
+# Install dependencies
 npm install
 
-# 创建环境变量文件
+# Create environment variables file
 echo "VITE_API_BASE_URL=http://localhost:8000" > .env
 ```
 
-## 运行应用
+## Running the Application
 
-### 开发模式
+### Development Mode
 
-**后端：**
+**Backend:**
 
 ```bash
-# 在项目根目录
+# In the project root directory
 python run.py
 ```
 
-后端将在 `http://localhost:8000` 运行
+Backend will run at `http://localhost:8000`
 
-**前端：**
+**Frontend:**
 
 ```bash
 cd client
 npm run dev
 ```
 
-前端将在 `http://localhost:5173` 运行
+Frontend will run at `http://localhost:5173`
 
-### 生产模式
+### Production Mode
 
-**构建前端：**
+**Build Frontend:**
 
 ```bash
 cd client
 npm run build
 ```
 
-**运行后端（生产模式）：**
+**Run Backend (Production Mode):**
 
 ```bash
-# 设置环境变量
+# Set environment variable
 export DEBUG=False
 
-# 运行
+# Run
 python run.py
 ```
 
-## API文档
+## API Documentation
 
-启动后端后，访问以下URL查看API文档：
+After starting the backend, visit the following URLs to view API documentation:
 
 - Swagger UI: `http://localhost:8000/api/docs`
 - ReDoc: `http://localhost:8000/api/redoc`
 
-## 主要API端点
+## Main API Endpoints
 
-### 认证
+### Authentication
 
-- `POST /api/auth/register` - 注册新用户
-- `POST /api/auth/login` - 用户登录
-- `GET /api/auth/me` - 获取当前用户信息
+- `POST /api/auth/register` - Register a new user
+- `POST /api/auth/login` - User login
+- `GET /api/auth/me` - Get current user information
 
-### 项目
+### Projects
 
-- `GET /api/projects` - 获取所有项目
-- `POST /api/projects` - 创建项目
-- `GET /api/projects/{id}` - 获取项目详情
-- `PATCH /api/projects/{id}` - 更新项目
-- `DELETE /api/projects/{id}` - 删除项目
+- `GET /api/projects` - Get all projects
+- `POST /api/projects` - Create a project
+- `GET /api/projects/{id}` - Get project details
+- `PATCH /api/projects/{id}` - Update a project
+- `DELETE /api/projects/{id}` - Delete a project
 
-### 任务板
+### Task Boards
 
-- `GET /api/task-boards/project/{project_id}` - 获取项目的所有任务板
-- `POST /api/task-boards` - 创建任务板
-- `GET /api/task-boards/{id}` - 获取任务板详情
-- `PATCH /api/task-boards/{id}` - 更新任务板
-- `DELETE /api/task-boards/{id}` - 删除任务板
+- `GET /api/task-boards/project/{project_id}` - Get all task boards for a project
+- `POST /api/task-boards` - Create a task board
+- `GET /api/task-boards/{id}` - Get task board details
+- `PATCH /api/task-boards/{id}` - Update a task board
+- `DELETE /api/task-boards/{id}` - Delete a task board
 
-### 任务
+### Tasks
 
-- `GET /api/tasks/board/{board_id}` - 获取任务板的所有任务
-- `POST /api/tasks` - 创建任务
-- `GET /api/tasks/{id}` - 获取任务详情
-- `PATCH /api/tasks/{id}` - 更新任务
-- `DELETE /api/tasks/{id}` - 删除任务
+- `GET /api/tasks/board/{board_id}` - Get all tasks for a board
+- `POST /api/tasks` - Create a task
+- `GET /api/tasks/{id}` - Get task details
+- `PATCH /api/tasks/{id}` - Update a task
+- `DELETE /api/tasks/{id}` - Delete a task
 
-### 邀请
+### Invitations
 
-- `POST /api/invitations` - 创建并发送邀请
-- `GET /api/invitations/project/{project_id}` - 获取项目的所有邀请
-- `POST /api/invitations/accept/{token}` - 接受邀请
+- `POST /api/invitations` - Create and send an invitation
+- `GET /api/invitations/project/{project_id}` - Get all invitations for a project
+- `POST /api/invitations/accept/{token}` - Accept an invitation
 
-## 使用指南
+## User Guide
 
-### 1. 注册和登录
+### 1. Registration and Login
 
-1. 访问前端应用
-2. 点击"注册"创建新账户
-3. 填写邮箱、用户名和密码
-4. 注册成功后自动登录
+1. Visit the frontend application
+2. Click "Register" to create a new account
+3. Fill in email, username, and password
+4. Automatically logged in after successful registration
 
-### 2. 创建项目
+### 2. Create a Project
 
-1. 登录后，点击"创建项目"
-2. 输入项目名称和描述
-3. 点击"创建"
+1. After logging in, click "Create Project"
+2. Enter project name and description
+3. Click "Create"
 
-### 3. 创建任务板
+### 3. Create a Task Board
 
-1. 在项目页面，点击"创建任务板"
-2. 输入任务板名称
-3. 注意：免费用户最多创建3个任务板
+1. On the project page, click "Create Task Board"
+2. Enter task board name
+3. Note: Free users can create up to 3 task boards
 
-### 4. 添加任务
+### 4. Add Tasks
 
-1. 在任务板中，点击"添加任务"
-2. 输入任务标题和描述
-3. 选择任务状态（TODO、In Progress、DONE）
-4. 可选：分配给团队成员
+1. In the task board, click "Add Task"
+2. Enter task title and description
+3. Select task status (TODO, In Progress, DONE)
+4. Optional: Assign to team members
 
-### 5. 邀请团队成员
+### 5. Invite Team Members
 
-1. 在项目设置中，点击"邀请成员"
-2. 输入要邀请的邮箱地址
-3. 系统会发送邀请邮件
-4. 被邀请用户点击邮件中的链接接受邀请
+1. In project settings, click "Invite Member"
+2. Enter the email address to invite
+3. The system will send an invitation email
+4. The invited user clicks the link in the email to accept the invitation
 
-### 6. 管理任务
+### 6. Manage Tasks
 
-- **移动任务状态**：拖拽任务卡片到不同的状态列
-- **编辑任务**：点击任务卡片进行编辑
-- **删除任务**：在任务详情中点击删除
+- **Move task status**: Drag task cards to different status columns
+- **Edit task**: Click on task card to edit
+- **Delete task**: Click delete in task details
 
-## 许可证管理
+## License Management
 
-### 免费用户
+### Free Users
 
-- 最多创建3个任务板
-- 可以加入无限数量的项目（作为成员）
-- 所有基本功能可用
+- Can create up to 3 task boards
+- Can join unlimited projects (as a member)
+- All basic features available
 
-### 付费用户
+### Paid Users
 
-- 无限制创建任务板
-- 所有功能可用
-- 优先支持
+- Unlimited task board creation
+- All features available
+- Priority support
 
-要升级到付费版本，请联系管理员。
+To upgrade to the paid version, please contact the administrator.
 
-## 数据库迁移
+## Database Migrations
 
-使用Alembic进行数据库迁移：
+Use Alembic for database migrations:
 
 ```bash
-# 创建新的迁移
+# Create a new migration
 alembic revision --autogenerate -m "description"
 
-# 应用迁移
+# Apply migrations
 alembic upgrade head
 
-# 回滚迁移
+# Rollback migration
 alembic downgrade -1
 ```
 
-## 故障排除
+## Troubleshooting
 
-### 数据库连接错误
+### Database Connection Errors
 
-- 检查PostgreSQL服务是否运行
-- 验证 `.env` 文件中的 `DATABASE_URL` 配置
-- 确认数据库用户权限
+- Check if PostgreSQL service is running
+- Verify `DATABASE_URL` configuration in `.env` file
+- Confirm database user permissions
 
-### 认证错误
+### Authentication Errors
 
-- 检查JWT_SECRET_KEY是否设置
-- 确认token未过期
-- 清除浏览器localStorage中的token
+- Check if JWT_SECRET_KEY is set
+- Confirm token is not expired
+- Clear token from browser localStorage
 
-### Email发送失败
+### Email Sending Failures
 
-- 检查SMTP配置
-- 对于Gmail，需要使用应用专用密码
-- 检查防火墙设置
+- Check SMTP configuration
+- For Gmail, use an app-specific password
+- Check firewall settings
 
-## 开发指南
+## Development Guide
 
-### 添加新的API端点
+### Adding New API Endpoints
 
-1. 在 `backend/api/v1/` 创建新的路由文件
-2. 在 `backend/schemas/` 定义请求/响应模型
-3. 在 `backend/models/` 定义数据库模型（如需要）
-4. 在 `backend/api/v1/__init__.py` 注册路由
+1. Create a new route file in `backend/api/v1/`
+2. Define request/response models in `backend/schemas/`
+3. Define database models in `backend/models/` (if needed)
+4. Register routes in `backend/api/v1/__init__.py`
 
-### 前端开发
+### Frontend Development
 
-前端代码位于 `client/` 目录。主要结构：
+Frontend code is located in the `client/` directory. Main structure:
 
-- `src/api/` - API客户端
-- `src/components/` - React组件
-- `src/store/` - Redux store和reducers
+- `src/api/` - API client
+- `src/components/` - React components
+- `src/store/` - Redux store and reducers
 
-## 贡献
+## Contributing
 
-欢迎贡献代码！请遵循以下步骤：
+Contributions are welcome! Please follow these steps:
 
-1. Fork项目
-2. 创建功能分支
-3. 提交更改
-4. 推送到分支
-5. 创建Pull Request
+1. Fork the project
+2. Create a feature branch
+3. Commit your changes
+4. Push to the branch
+5. Create a Pull Request
 
-## 许可证
+## License
 
-本项目采用MIT许可证。
+This project is licensed under the MIT License.
 
-## 支持
+## Support
 
-如有问题或建议，请创建Issue。
+If you have questions or suggestions, please create an Issue.
 
-## 更新日志
+## Changelog
 
 ### v1.0.0 (2024)
 
-- 初始版本发布
-- 用户认证和许可证管理
-- 项目空间管理
-- 任务分解板功能
-- Email邀请功能
+- Initial release
+- User authentication and license management
+- Project space management
+- Task decomposition board functionality
+- Email invitation feature
