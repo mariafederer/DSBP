@@ -1,7 +1,7 @@
 """
 Project Member Model
 """
-from sqlalchemy import Column, BigInteger, DateTime, ForeignKey, UniqueConstraint, String
+from sqlalchemy import Column, Integer, DateTime, ForeignKey, UniqueConstraint, String
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 from backend.database import Base
@@ -10,9 +10,9 @@ from backend.database import Base
 class ProjectMember(Base):
     __tablename__ = "project_members"
     
-    id = Column(BigInteger, primary_key=True, index=True)
-    project_id = Column(BigInteger, ForeignKey("projects.id"), nullable=False)
-    user_id = Column(BigInteger, ForeignKey("users.id"), nullable=False)
+    id = Column(Integer, primary_key=True, index=True, autoincrement=True)
+    project_id = Column(Integer, ForeignKey("projects.id"), nullable=False)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
     role = Column(String(50), default="member", nullable=False)  # member, admin
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     
