@@ -4,7 +4,6 @@ from sqlalchemy.orm import sessionmaker, declarative_base
 
 from backend.config import settings
 
-# Default to a local SQLite database if no DATABASE_URL is provided or usable
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 PROJECT_ROOT = os.path.abspath(os.path.join(BASE_DIR, ".."))
 DEFAULT_DB_PATH = os.path.join(PROJECT_ROOT, "dsbp.db")
