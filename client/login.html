@@ -3,341 +3,436 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="dsbp-api-base" content="">
     <title>登录 - DSBP</title>
     <style>
+        :root {
+            color-scheme: light dark;
+            --bg-gradient-start: #1f2a4b;
+            --bg-gradient-end: #3a4d8f;
+            --card-bg: rgba(255, 255, 255, 0.92);
+            --card-bg-dark: rgba(18, 23, 40, 0.92);
+            --card-shadow: 0 24px 70px rgba(10, 17, 48, 0.35);
+            --primary: #5561ff;
+            --primary-dark: #3c48e1;
+            --input-border: rgba(86, 97, 255, 0.25);
+            --danger: #e74c3c;
+            --danger-bg: rgba(231, 76, 60, 0.12);
+            --muted: #6f7d9c;
+            --radius: 18px;
+            --transition: 0.25s ease;
+        }
+
         * {
-            margin: 0;
-            padding: 0;
             box-sizing: border-box;
         }
 
         body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             min-height: 100vh;
+            margin: 0;
+            font-family: "Inter", "Segoe UI", -apple-system, BlinkMacSystemFont, "Helvetica Neue", Arial, sans-serif;
             display: flex;
-            align-items: center;
             justify-content: center;
-            padding: 20px;
+            align-items: flex-start;
+            padding: 48px 16px;
+            background: radial-gradient(circle at top, rgba(255, 255, 255, 0.16), transparent 65%),
+                        linear-gradient(135deg, var(--bg-gradient-start), var(--bg-gradient-end));
         }
 
-        .container {
-            background: white;
-            border-radius: 16px;
-            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
-            padding: 40px;
-            width: 100%;
-            max-width: 450px;
-            animation: slideUp 0.5s ease-out;
+        .auth-page {
+            width: min(100%, 420px);
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            align-items: stretch;
         }
 
-        @keyframes slideUp {
-            from {
-                opacity: 0;
-                transform: translateY(20px);
+        .auth-card {
+            backdrop-filter: blur(16px);
+            background: var(--card-bg);
+            color: #1b2140;
+            border-radius: var(--radius);
+            padding: 36px 32px;
+            box-shadow: var(--card-shadow);
+        }
+
+        @media (prefers-color-scheme: dark) {
+            .auth-card {
+                background: var(--card-bg-dark);
+                color: #f4f6ff;
             }
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
         }
 
-        h1 {
-            color: #333;
-            margin-bottom: 8px;
-            font-size: 28px;
-            font-weight: 600;
-        }
-
-        .subtitle {
-            color: #666;
-            margin-bottom: 32px;
-            font-size: 14px;
-        }
-
-        .form-group {
+        .auth-card header {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
             margin-bottom: 24px;
+        }
+
+        .auth-title {
+            font-size: 1.9rem;
+            font-weight: 700;
+            letter-spacing: -0.03em;
+            margin: 0;
+        }
+
+        .auth-subtitle {
+            margin: 0;
+            color: var(--muted);
+            font-size: 0.95rem;
+        }
+
+        form {
+            display: flex;
+            flex-direction: column;
+            gap: 18px;
         }
 
         label {
             display: block;
-            color: #333;
-            font-size: 14px;
-            font-weight: 500;
+            font-weight: 600;
+            margin-bottom: 6px;
+            font-size: 0.9rem;
+        }
+
+        .auth-input {
+            width: 100%;
+            border-radius: 12px;
+            border: 1px solid rgba(255, 255, 255, 0.28);
+            background: rgba(255, 255, 255, 0.8);
+            padding: 12px 14px;
+            font-size: 0.95rem;
+            transition: border var(--transition), box-shadow var(--transition), background var(--transition);
+        }
+
+        .auth-input:focus {
+            outline: none;
+            border-color: var(--input-border);
+            box-shadow: 0 0 0 4px rgba(85, 97, 255, 0.15);
+            background: rgba(255, 255, 255, 1);
+        }
+
+        .auth-input.has-error {
+            border-color: rgba(231, 76, 60, 0.7);
+            box-shadow: 0 0 0 3px rgba(231, 76, 60, 0.15);
+        }
+
+        .field-error {
+            color: var(--danger);
+            margin-top: 6px;
+            font-size: 0.8rem;
+        }
+
+        .auth-alert {
+            border-radius: 12px;
+            padding: 12px 16px;
+            background: var(--danger-bg);
+            border: 1px solid rgba(231, 76, 60, 0.25);
+            color: var(--danger);
+            font-size: 0.9rem;
             margin-bottom: 8px;
         }
 
-        .required {
-            color: #e74c3c;
-        }
-
-        input {
-            width: 100%;
-            padding: 12px 16px;
-            border: 2px solid #e0e0e0;
-            border-radius: 8px;
-            font-size: 15px;
-            transition: all 0.3s;
-            outline: none;
-        }
-
-        input:focus {
-            border-color: #667eea;
-            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
-        }
-
-        input.error {
-            border-color: #e74c3c;
-        }
-
-        .error-message {
-            color: #e74c3c;
-            font-size: 13px;
-            margin-top: 6px;
-            display: none;
-        }
-
-        .error-message.show {
-            display: block;
-        }
-
-        .submit-btn {
-            width: 100%;
-            padding: 14px;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
+        .auth-button {
+            display: inline-flex;
+            justify-content: center;
+            align-items: center;
+            gap: 10px;
             border: none;
-            border-radius: 8px;
-            font-size: 16px;
+            border-radius: 999px;
+            padding: 13px 18px;
             font-weight: 600;
+            font-size: 1rem;
+            color: #fff;
+            background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+            box-shadow: 0 12px 30px rgba(85, 97, 255, 0.35);
             cursor: pointer;
-            transition: all 0.3s;
-            margin-top: 8px;
+            transition: transform var(--transition), box-shadow var(--transition);
         }
 
-        .submit-btn:hover {
+        .auth-button:hover:not(:disabled) {
             transform: translateY(-2px);
-            box-shadow: 0 8px 20px rgba(102, 126, 234, 0.4);
+            box-shadow: 0 16px 38px rgba(85, 97, 255, 0.45);
         }
 
-        .submit-btn:active {
-            transform: translateY(0);
-        }
-
-        .submit-btn:disabled {
-            opacity: 0.6;
+        .auth-button:disabled {
+            opacity: 0.7;
             cursor: not-allowed;
             transform: none;
         }
 
-        .error-message-general {
-            background: #f8d7da;
-            color: #721c24;
-            padding: 12px 16px;
-            border-radius: 8px;
-            margin-bottom: 20px;
-            display: none;
-            font-size: 14px;
-        }
-
-        .error-message-general.show {
-            display: block;
-        }
-
-        .register-link {
-            text-align: center;
-            margin-top: 24px;
-            color: #666;
-            font-size: 14px;
-        }
-
-        .register-link a {
-            color: #667eea;
-            text-decoration: none;
-            font-weight: 500;
-        }
-
-        .register-link a:hover {
-            text-decoration: underline;
-        }
-
-        .loading {
-            display: inline-block;
+        .auth-spinner {
             width: 16px;
             height: 16px;
-            border: 2px solid rgba(255, 255, 255, 0.3);
-            border-top-color: white;
             border-radius: 50%;
+            border: 2px solid rgba(255, 255, 255, 0.4);
+            border-top-color: #fff;
             animation: spin 0.8s linear infinite;
-            margin-right: 8px;
-            vertical-align: middle;
         }
 
         @keyframes spin {
-            to { transform: rotate(360deg); }
+            to {
+                transform: rotate(360deg);
+            }
+        }
+
+        .auth-footer {
+            margin-top: 24px;
+            text-align: center;
+            font-size: 0.9rem;
+            color: rgba(255, 255, 255, 0.85);
+        }
+
+        .auth-footer a {
+            color: #fff;
+            font-weight: 600;
+            text-decoration: underline;
+        }
+
+        .auth-debug-panel {
+            backdrop-filter: blur(12px);
+            background: rgba(13, 19, 40, 0.5);
+            border-radius: var(--radius);
+            padding: 20px 24px;
+            color: #d5ddff;
+            box-shadow: 0 12px 35px rgba(10, 17, 48, 0.28);
+        }
+
+        .auth-debug-panel h2 {
+            margin: 0 0 12px;
+            font-size: 1.1rem;
+            letter-spacing: 0.03em;
+        }
+
+        .auth-debug-meta {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            font-size: 0.85rem;
+            color: rgba(213, 221, 255, 0.85);
+            margin-bottom: 12px;
+            word-break: break-all;
+        }
+
+        .auth-debug {
+            font-family: "SFMono-Regular", Consolas, Menlo, monospace;
+            font-size: 0.75rem;
+            white-space: pre-wrap;
+            background: rgba(6, 10, 26, 0.6);
+            border-radius: 12px;
+            padding: 14px;
+            max-height: 200px;
+            overflow-y: auto;
+            border: 1px solid rgba(86, 97, 255, 0.25);
+        }
+
+        [hidden] {
+            display: none !important;
         }
     </style>
 </head>
 <body>
-    <div class="container">
-        <h1>登录账户</h1>
-        <p class="subtitle">登录您的 DSBP 账户</p>
+    <div class="auth-page">
+        <section class="auth-card">
+            <header>
+                <h1 class="auth-title">欢迎回来</h1>
+                <p class="auth-subtitle">使用您的 DSBP 账户登录以继续使用项目面板。</p>
+            </header>
 
-        <div class="error-message-general" id="generalError"></div>
+            <div class="auth-alert" data-role="alert" hidden></div>
 
-        <form id="loginForm">
-            <div class="form-group">
-                <label for="email">邮箱地址 <span class="required">*</span></label>
-                <input 
-                    type="email" 
-                    id="email" 
-                    name="email" 
-                    required 
-                    placeholder="your@email.com"
-                    autocomplete="email"
-                >
-                <div class="error-message" id="emailError"></div>
+            <form id="loginForm" data-role="form" novalidate>
+                <div>
+                    <label for="email">邮箱地址</label>
+                    <input class="auth-input" type="email" id="email" name="email" autocomplete="email" placeholder="you@example.com" required>
+                    <div class="field-error" data-role="field-error" data-error-for="email" hidden></div>
+                </div>
+                <div>
+                    <label for="password">密码</label>
+                    <input class="auth-input" type="password" id="password" name="password" autocomplete="current-password" placeholder="请输入密码" required>
+                    <div class="field-error" data-role="field-error" data-error-for="password" hidden></div>
+                </div>
+                <button type="submit" class="auth-button" data-role="submit">
+                    立即登录
+                </button>
+            </form>
+        </section>
+
+        <section class="auth-debug-panel">
+            <h2>调试信息</h2>
+            <div class="auth-debug-meta">
+                <span>API 地址：<strong data-role="api-base">检测中...</strong></span>
+                <span>提示：可在地址栏添加 <code>?apiBase=http://localhost:8000</code> 指定后端。</span>
             </div>
+            <pre class="auth-debug" data-role="debug-log" hidden></pre>
+        </section>
 
-            <div class="form-group">
-                <label for="password">密码 <span class="required">*</span></label>
-                <input 
-                    type="password" 
-                    id="password" 
-                    name="password" 
-                    required 
-                    placeholder="请输入密码"
-                    autocomplete="current-password"
-                >
-                <div class="error-message" id="passwordError"></div>
-            </div>
-
-            <button type="submit" class="submit-btn" id="submitBtn">
-                登录
-            </button>
-        </form>
-
-        <div class="register-link">
-            还没有账户？ <a href="register.html">立即注册</a>
-        </div>
+        <p class="auth-footer">还没有账户？<a href="register.html">立即注册</a></p>
     </div>
 
+    <script src="js/auth-shared.js"></script>
     <script>
-        const API_BASE_URL = 'http://localhost:8000';
+        (function () {
+            const form = document.querySelector('[data-role="form"]');
+            const submitButton = document.querySelector('[data-role="submit"]');
+            const generalAlert = document.querySelector('[data-role="alert"]');
+            const apiBaseLabel = document.querySelector('[data-role="api-base"]');
+            const debugLogger = DSBPAuth.createDebugLogger(document.querySelector('[data-role="debug-log"]'));
+            const apiBaseUrl = DSBPAuth.detectApiBaseUrl();
+            const log = (event, detail) => debugLogger.log(event, detail);
 
-        const form = document.getElementById('loginForm');
-        const submitBtn = document.getElementById('submitBtn');
-        const generalError = document.getElementById('generalError');
-
-        // 清除错误状态
-        function clearErrors() {
-            document.querySelectorAll('.error-message').forEach(el => {
-                el.classList.remove('show');
-                el.textContent = '';
-            });
-            document.querySelectorAll('input').forEach(el => {
-                el.classList.remove('error');
-            });
-            generalError.classList.remove('show');
-        }
-
-        // 显示错误
-        function showError(fieldId, message) {
-            const input = document.getElementById(fieldId);
-            const errorEl = document.getElementById(fieldId + 'Error');
-            if (input && errorEl) {
-                input.classList.add('error');
-                errorEl.textContent = message;
-                errorEl.classList.add('show');
+            if (apiBaseLabel) {
+                apiBaseLabel.textContent = apiBaseUrl;
             }
-        }
 
-        // 显示一般错误
-        function showGeneralError(message) {
-            generalError.textContent = message;
-            generalError.classList.add('show');
-        }
+            log('init', { apiBaseUrl });
 
-        // 表单提交
-        form.addEventListener('submit', async (e) => {
-            e.preventDefault();
-            clearErrors();
+            const fieldErrors = Array.from(document.querySelectorAll('[data-role="field-error"]'));
 
-            const formData = {
-                email: document.getElementById('email').value.trim(),
-                password: document.getElementById('password').value,
+            const clearFieldError = (name) => {
+                const errorEl = fieldErrors.find((el) => el.dataset.errorFor === name);
+                if (errorEl) {
+                    errorEl.textContent = '';
+                    errorEl.setAttribute('hidden', '');
+                }
+
+                const input = form.elements[name];
+                if (input) {
+                    input.classList.remove('has-error');
+                }
             };
 
-            // 基本验证
-            if (!formData.email) {
-                showError('email', '请输入邮箱地址');
-                return;
-            }
+            const showFieldError = (name, message) => {
+                const errorEl = fieldErrors.find((el) => el.dataset.errorFor === name);
+                if (errorEl) {
+                    errorEl.textContent = message;
+                    errorEl.removeAttribute('hidden');
+                }
 
-            if (!formData.password) {
-                showError('password', '请输入密码');
-                return;
-            }
+                const input = form.elements[name];
+                if (input) {
+                    input.classList.add('has-error');
+                    input.focus({ preventScroll: true });
+                }
+            };
 
-            // 禁用提交按钮
-            submitBtn.disabled = true;
-            submitBtn.innerHTML = '<span class="loading"></span>登录中...';
+            const setGeneralError = (message) => {
+                if (!generalAlert) {
+                    return;
+                }
 
-            try {
-                const response = await fetch(`${API_BASE_URL}/api/auth/login`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify(formData),
+                generalAlert.textContent = message;
+                generalAlert.removeAttribute('hidden');
+            };
+
+            const clearGeneralError = () => {
+                if (!generalAlert) {
+                    return;
+                }
+
+                generalAlert.textContent = '';
+                generalAlert.setAttribute('hidden', '');
+            };
+
+            const setLoading = (isLoading) => {
+                if (!submitButton) {
+                    return;
+                }
+
+                if (isLoading) {
+                    submitButton.dataset.originalText = submitButton.textContent.trim();
+                    submitButton.innerHTML = '<span class="auth-spinner" aria-hidden="true"></span>处理中...';
+                    submitButton.disabled = true;
+                } else {
+                    submitButton.disabled = false;
+                    const label = submitButton.dataset.originalText || '立即登录';
+                    submitButton.textContent = label;
+                    delete submitButton.dataset.originalText;
+                }
+            };
+
+            form.addEventListener('input', (event) => {
+                if (event.target instanceof HTMLInputElement) {
+                    clearFieldError(event.target.name);
+                    clearGeneralError();
+                }
+            });
+
+            form.addEventListener('submit', async (event) => {
+                event.preventDefault();
+                debugLogger.clear();
+                clearGeneralError();
+                fieldErrors.forEach((el) => el.setAttribute('hidden', ''));
+                Array.from(form.elements).forEach((el) => {
+                    if (el instanceof HTMLInputElement) {
+                        el.classList.remove('has-error');
+                    }
                 });
 
-                const data = await response.json();
+                const email = form.elements.email.value.trim();
+                const password = form.elements.password.value;
 
-                if (!response.ok) {
-                    // 处理错误响应
-                    if (data.detail) {
-                        showGeneralError(data.detail);
-                    } else {
-                        showGeneralError('登录失败，请检查邮箱和密码');
-                    }
-                    throw new Error(data.detail || '登录失败');
+                log('form:submit', { email });
+
+                if (!email) {
+                    log('validation:email', 'Email is required');
+                    showFieldError('email', '请输入邮箱地址');
+                    return;
                 }
 
-                // 登录成功
-                if (data.access_token) {
-                    // 保存token到localStorage
-                    localStorage.setItem('dsbp_access_token', data.access_token);
-                    
-                    // 跳转到主页
+                if (!/.+@.+/.test(email)) {
+                    log('validation:email', 'Invalid email format');
+                    showFieldError('email', '邮箱格式不正确');
+                    return;
+                }
+
+                if (!password) {
+                    log('validation:password', 'Password is required');
+                    showFieldError('password', '请输入密码');
+                    return;
+                }
+
+                setLoading(true);
+
+                try {
+                    const result = await DSBPAuth.requestAuth('login', { email, password }, {
+                        baseUrl: apiBaseUrl,
+                        onDebug: log,
+                    });
+
+                    if (!result.ok) {
+                        const message = DSBPAuth.parseErrorMessage(result, '登录失败，请稍后重试。');
+                        log('login:failed', { message, status: result.status });
+                        setGeneralError(message);
+                        return;
+                    }
+
+                    if (!result.data || typeof result.data !== 'object') {
+                        log('login:unexpected-response', result.data);
+                        setGeneralError('服务器返回了未知的响应，请稍后再试。');
+                        return;
+                    }
+
+                    const { access_token: token, user } = result.data;
+
+                    if (!token) {
+                        log('login:missing-token', result.data);
+                        setGeneralError('登录响应缺少访问令牌。');
+                        return;
+                    }
+
+                    DSBPAuth.persistSession(token, user || null);
+                    log('login:success', { userId: user?.id, username: user?.username });
                     window.location.href = 'index.html';
+                } catch (error) {
+                    log('login:exception', { message: error.message });
+                    setGeneralError(error.message || '登录失败，请稍后重试。');
+                } finally {
+                    setLoading(false);
                 }
-
-            } catch (error) {
-                console.error('登录错误:', error);
-                if (!error.message.includes('登录成功')) {
-                    showGeneralError(error.message || '登录失败，请稍后重试');
-                }
-            } finally {
-                submitBtn.disabled = false;
-                submitBtn.textContent = '登录';
-            }
-        });
-
-        // 实时清除错误状态
-        document.querySelectorAll('input').forEach(input => {
-            input.addEventListener('input', () => {
-                if (input.classList.contains('error')) {
-                    input.classList.remove('error');
-                    const errorEl = document.getElementById(input.id + 'Error');
-                    if (errorEl) {
-                        errorEl.classList.remove('show');
-                    }
-                }
-                generalError.classList.remove('show');
             });
-        });
+        })();
     </script>
 </body>
 </html>
-

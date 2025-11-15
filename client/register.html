@@ -3,391 +3,511 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>注册账户 - DSBP</title>
+    <meta name="dsbp-api-base" content="">
+    <title>注册 - DSBP</title>
     <style>
+        :root {
+            color-scheme: light dark;
+            --bg-gradient-start: #1c253f;
+            --bg-gradient-end: #314b93;
+            --card-bg: rgba(255, 255, 255, 0.94);
+            --card-bg-dark: rgba(18, 24, 42, 0.92);
+            --card-shadow: 0 28px 60px rgba(14, 24, 64, 0.35);
+            --primary: #16a085;
+            --primary-dark: #138d74;
+            --input-border: rgba(22, 160, 133, 0.35);
+            --danger: #e74c3c;
+            --success: #2ecc71;
+            --success-bg: rgba(46, 204, 113, 0.15);
+            --danger-bg: rgba(231, 76, 60, 0.12);
+            --muted: #6f7d9c;
+            --radius: 18px;
+            --transition: 0.25s ease;
+        }
+
         * {
-            margin: 0;
-            padding: 0;
             box-sizing: border-box;
         }
 
         body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             min-height: 100vh;
+            margin: 0;
+            font-family: "Inter", "Segoe UI", -apple-system, BlinkMacSystemFont, "Helvetica Neue", Arial, sans-serif;
             display: flex;
-            align-items: center;
             justify-content: center;
-            padding: 20px;
+            align-items: flex-start;
+            padding: 48px 16px;
+            background: radial-gradient(circle at 10% 20%, rgba(255, 255, 255, 0.18), transparent 65%),
+                        linear-gradient(135deg, var(--bg-gradient-start), var(--bg-gradient-end));
         }
 
-        .container {
-            background: white;
-            border-radius: 16px;
-            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
-            padding: 40px;
-            width: 100%;
-            max-width: 450px;
-            animation: slideUp 0.5s ease-out;
+        .auth-page {
+            width: min(100%, 460px);
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
         }
 
-        @keyframes slideUp {
-            from {
-                opacity: 0;
-                transform: translateY(20px);
+        .auth-card {
+            backdrop-filter: blur(18px);
+            background: var(--card-bg);
+            color: #152344;
+            border-radius: var(--radius);
+            padding: 38px 34px;
+            box-shadow: var(--card-shadow);
+        }
+
+        @media (prefers-color-scheme: dark) {
+            .auth-card {
+                background: var(--card-bg-dark);
+                color: #f5f8ff;
             }
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
         }
 
-        h1 {
-            color: #333;
-            margin-bottom: 8px;
-            font-size: 28px;
-            font-weight: 600;
+        .auth-card header {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            margin-bottom: 26px;
         }
 
-        .subtitle {
-            color: #666;
-            margin-bottom: 32px;
-            font-size: 14px;
+        .auth-title {
+            font-size: 1.9rem;
+            font-weight: 700;
+            margin: 0;
+            letter-spacing: -0.02em;
         }
 
-        .form-group {
-            margin-bottom: 24px;
+        .auth-subtitle {
+            margin: 0;
+            font-size: 0.95rem;
+            color: var(--muted);
+        }
+
+        form {
+            display: flex;
+            flex-direction: column;
+            gap: 18px;
         }
 
         label {
             display: block;
-            color: #333;
-            font-size: 14px;
-            font-weight: 500;
+            font-weight: 600;
+            margin-bottom: 6px;
+            font-size: 0.9rem;
+        }
+
+        .auth-input {
+            width: 100%;
+            border-radius: 12px;
+            border: 1px solid rgba(255, 255, 255, 0.28);
+            background: rgba(255, 255, 255, 0.82);
+            padding: 12px 14px;
+            font-size: 0.95rem;
+            transition: border var(--transition), box-shadow var(--transition), background var(--transition);
+        }
+
+        .auth-input:focus {
+            outline: none;
+            border-color: var(--input-border);
+            box-shadow: 0 0 0 4px rgba(22, 160, 133, 0.18);
+            background: rgba(255, 255, 255, 1);
+        }
+
+        .auth-input.has-error {
+            border-color: rgba(231, 76, 60, 0.7);
+            box-shadow: 0 0 0 3px rgba(231, 76, 60, 0.15);
+        }
+
+        .field-hint {
+            margin-top: 4px;
+            font-size: 0.8rem;
+            color: rgba(21, 35, 68, 0.6);
+        }
+
+        .field-error {
+            color: var(--danger);
+            margin-top: 6px;
+            font-size: 0.8rem;
+        }
+
+        .auth-alert,
+        .auth-success {
+            border-radius: 12px;
+            padding: 12px 16px;
+            font-size: 0.9rem;
             margin-bottom: 8px;
         }
 
-        .required {
-            color: #e74c3c;
+        .auth-alert {
+            background: var(--danger-bg);
+            border: 1px solid rgba(231, 76, 60, 0.25);
+            color: var(--danger);
         }
 
-        input {
-            width: 100%;
-            padding: 12px 16px;
-            border: 2px solid #e0e0e0;
-            border-radius: 8px;
-            font-size: 15px;
-            transition: all 0.3s;
-            outline: none;
+        .auth-success {
+            background: var(--success-bg);
+            border: 1px solid rgba(46, 204, 113, 0.25);
+            color: var(--success);
         }
 
-        input:focus {
-            border-color: #667eea;
-            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
-        }
-
-        input.error {
-            border-color: #e74c3c;
-        }
-
-        .error-message {
-            color: #e74c3c;
-            font-size: 13px;
-            margin-top: 6px;
-            display: none;
-        }
-
-        .error-message.show {
-            display: block;
-        }
-
-        .submit-btn {
-            width: 100%;
-            padding: 14px;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
+        .auth-button {
+            display: inline-flex;
+            justify-content: center;
+            align-items: center;
+            gap: 10px;
             border: none;
-            border-radius: 8px;
-            font-size: 16px;
+            border-radius: 999px;
+            padding: 13px 18px;
             font-weight: 600;
+            font-size: 1rem;
+            color: #fff;
+            background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+            box-shadow: 0 16px 38px rgba(22, 160, 133, 0.35);
             cursor: pointer;
-            transition: all 0.3s;
-            margin-top: 8px;
+            transition: transform var(--transition), box-shadow var(--transition);
         }
 
-        .submit-btn:hover {
+        .auth-button:hover:not(:disabled) {
             transform: translateY(-2px);
-            box-shadow: 0 8px 20px rgba(102, 126, 234, 0.4);
+            box-shadow: 0 20px 44px rgba(22, 160, 133, 0.45);
         }
 
-        .submit-btn:active {
-            transform: translateY(0);
-        }
-
-        .submit-btn:disabled {
-            opacity: 0.6;
+        .auth-button:disabled {
+            opacity: 0.75;
             cursor: not-allowed;
             transform: none;
         }
 
-        .success-message {
-            background: #d4edda;
-            color: #155724;
-            padding: 12px 16px;
-            border-radius: 8px;
-            margin-bottom: 20px;
-            display: none;
-            font-size: 14px;
-        }
-
-        .success-message.show {
-            display: block;
-        }
-
-        .login-link {
-            text-align: center;
-            margin-top: 24px;
-            color: #666;
-            font-size: 14px;
-        }
-
-        .login-link a {
-            color: #667eea;
-            text-decoration: none;
-            font-weight: 500;
-        }
-
-        .login-link a:hover {
-            text-decoration: underline;
-        }
-
-        .loading {
-            display: inline-block;
+        .auth-spinner {
             width: 16px;
             height: 16px;
-            border: 2px solid rgba(255, 255, 255, 0.3);
-            border-top-color: white;
             border-radius: 50%;
+            border: 2px solid rgba(255, 255, 255, 0.4);
+            border-top-color: #fff;
             animation: spin 0.8s linear infinite;
-            margin-right: 8px;
-            vertical-align: middle;
         }
 
         @keyframes spin {
-            to { transform: rotate(360deg); }
+            to {
+                transform: rotate(360deg);
+            }
+        }
+
+        .auth-footer {
+            text-align: center;
+            font-size: 0.9rem;
+            color: rgba(255, 255, 255, 0.85);
+        }
+
+        .auth-footer a {
+            color: #fff;
+            font-weight: 600;
+            text-decoration: underline;
+        }
+
+        .auth-debug-panel {
+            backdrop-filter: blur(12px);
+            background: rgba(11, 19, 38, 0.55);
+            border-radius: var(--radius);
+            padding: 20px 24px;
+            color: #d5ddff;
+            box-shadow: 0 14px 40px rgba(9, 16, 33, 0.32);
+        }
+
+        .auth-debug-panel h2 {
+            margin: 0 0 12px;
+            font-size: 1.1rem;
+        }
+
+        .auth-debug-meta {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            font-size: 0.85rem;
+            color: rgba(213, 221, 255, 0.85);
+            margin-bottom: 12px;
+            word-break: break-all;
+        }
+
+        .auth-debug {
+            font-family: "SFMono-Regular", Consolas, Menlo, monospace;
+            font-size: 0.75rem;
+            white-space: pre-wrap;
+            background: rgba(6, 10, 26, 0.65);
+            border-radius: 12px;
+            padding: 14px;
+            max-height: 200px;
+            overflow-y: auto;
+            border: 1px solid rgba(86, 97, 255, 0.25);
+        }
+
+        [hidden] {
+            display: none !important;
         }
     </style>
 </head>
 <body>
-    <div class="container">
-        <h1>创建账户</h1>
-        <p class="subtitle">注册新账户以开始使用 DSBP</p>
+    <div class="auth-page">
+        <section class="auth-card">
+            <header>
+                <h1 class="auth-title">创建您的账户</h1>
+                <p class="auth-subtitle">在几秒钟内开始使用 DSBP，创建项目和任务面板。</p>
+            </header>
 
-        <div class="success-message" id="successMessage"></div>
+            <div class="auth-success" data-role="success" hidden></div>
+            <div class="auth-alert" data-role="alert" hidden></div>
 
-        <form id="registerForm">
-            <div class="form-group">
-                <label for="email">邮箱地址 <span class="required">*</span></label>
-                <input 
-                    type="email" 
-                    id="email" 
-                    name="email" 
-                    required 
-                    placeholder="your@email.com"
-                    autocomplete="email"
-                >
-                <div class="error-message" id="emailError"></div>
+            <form id="registerForm" data-role="form" novalidate>
+                <div>
+                    <label for="email">邮箱地址</label>
+                    <input class="auth-input" type="email" id="email" name="email" autocomplete="email" placeholder="you@example.com" required>
+                    <div class="field-error" data-role="field-error" data-error-for="email" hidden></div>
+                </div>
+                <div>
+                    <label for="username">用户名</label>
+                    <input class="auth-input" type="text" id="username" name="username" autocomplete="username" placeholder="请输入用户名" required>
+                    <div class="field-error" data-role="field-error" data-error-for="username" hidden></div>
+                </div>
+                <div>
+                    <label for="password">密码</label>
+                    <input class="auth-input" type="password" id="password" name="password" autocomplete="new-password" placeholder="至少 8 个字符" minlength="8" required>
+                    <div class="field-hint">密码需包含至少 8 个字符。</div>
+                    <div class="field-error" data-role="field-error" data-error-for="password" hidden></div>
+                </div>
+                <div>
+                    <label for="fullName">全名（可选）</label>
+                    <input class="auth-input" type="text" id="fullName" name="fullName" autocomplete="name" placeholder="例如：张伟">
+                </div>
+                <button type="submit" class="auth-button" data-role="submit">
+                    创建账户
+                </button>
+            </form>
+        </section>
+
+        <section class="auth-debug-panel">
+            <h2>调试信息</h2>
+            <div class="auth-debug-meta">
+                <span>API 地址：<strong data-role="api-base">检测中...</strong></span>
+                <span>提示：可在地址栏添加 <code>?apiBase=http://localhost:8000</code> 指定后端。</span>
             </div>
+            <pre class="auth-debug" data-role="debug-log" hidden></pre>
+        </section>
 
-            <div class="form-group">
-                <label for="username">用户名 <span class="required">*</span></label>
-                <input 
-                    type="text" 
-                    id="username" 
-                    name="username" 
-                    required 
-                    placeholder="选择一个用户名"
-                    autocomplete="username"
-                >
-                <div class="error-message" id="usernameError"></div>
-            </div>
-
-            <div class="form-group">
-                <label for="password">密码 <span class="required">*</span></label>
-                <input 
-                    type="password" 
-                    id="password" 
-                    name="password" 
-                    required 
-                    placeholder="至少8个字符"
-                    autocomplete="new-password"
-                    minlength="8"
-                >
-                <div class="error-message" id="passwordError"></div>
-            </div>
-
-            <div class="form-group">
-                <label for="fullName">全名（可选）</label>
-                <input 
-                    type="text" 
-                    id="fullName" 
-                    name="fullName" 
-                    placeholder="您的全名"
-                    autocomplete="name"
-                >
-            </div>
-
-            <button type="submit" class="submit-btn" id="submitBtn">
-                注册账户
-            </button>
-        </form>
-
-        <div class="login-link">
-            已有账户？ <a href="login.html">立即登录</a>
-        </div>
+        <p class="auth-footer">已经有账户？<a href="login.html">立即登录</a></p>
     </div>
 
+    <script src="js/auth-shared.js"></script>
     <script>
-        const API_BASE_URL = 'http://localhost:8000';
+        (function () {
+            const form = document.querySelector('[data-role="form"]');
+            const submitButton = document.querySelector('[data-role="submit"]');
+            const successBanner = document.querySelector('[data-role="success"]');
+            const generalAlert = document.querySelector('[data-role="alert"]');
+            const apiBaseLabel = document.querySelector('[data-role="api-base"]');
+            const debugLogger = DSBPAuth.createDebugLogger(document.querySelector('[data-role="debug-log"]'));
+            const apiBaseUrl = DSBPAuth.detectApiBaseUrl();
+            const log = (event, detail) => debugLogger.log(event, detail);
 
-        const form = document.getElementById('registerForm');
-        const submitBtn = document.getElementById('submitBtn');
-        const successMessage = document.getElementById('successMessage');
-
-        // 清除错误状态
-        function clearErrors() {
-            document.querySelectorAll('.error-message').forEach(el => {
-                el.classList.remove('show');
-                el.textContent = '';
-            });
-            document.querySelectorAll('input').forEach(el => {
-                el.classList.remove('error');
-            });
-        }
-
-        // 显示错误
-        function showError(fieldId, message) {
-            const input = document.getElementById(fieldId);
-            const errorEl = document.getElementById(fieldId + 'Error');
-            if (input && errorEl) {
-                input.classList.add('error');
-                errorEl.textContent = message;
-                errorEl.classList.add('show');
+            if (apiBaseLabel) {
+                apiBaseLabel.textContent = apiBaseUrl;
             }
-        }
 
-        // 显示成功消息
-        function showSuccess(message) {
-            successMessage.textContent = message;
-            successMessage.classList.add('show');
-            setTimeout(() => {
-                successMessage.classList.remove('show');
-            }, 5000);
-        }
+            log('init', { apiBaseUrl });
 
-        // 表单提交
-        form.addEventListener('submit', async (e) => {
-            e.preventDefault();
-            clearErrors();
+            const fieldErrors = Array.from(document.querySelectorAll('[data-role="field-error"]'));
 
-            const formData = {
-                email: document.getElementById('email').value.trim(),
-                username: document.getElementById('username').value.trim(),
-                password: document.getElementById('password').value,
-                full_name: document.getElementById('fullName').value.trim() || null,
+            const clearFieldError = (name) => {
+                const errorEl = fieldErrors.find((el) => el.dataset.errorFor === name);
+                if (errorEl) {
+                    errorEl.textContent = '';
+                    errorEl.setAttribute('hidden', '');
+                }
+
+                const input = form.elements[name];
+                if (input) {
+                    input.classList.remove('has-error');
+                }
             };
 
-            // 基本验证
-            if (!formData.email) {
-                showError('email', '请输入邮箱地址');
-                return;
-            }
-
-            if (!formData.username) {
-                showError('username', '请输入用户名');
-                return;
-            }
-
-            if (formData.password.length < 8) {
-                showError('password', '密码至少需要8个字符');
-                return;
-            }
-
-            // 禁用提交按钮
-            submitBtn.disabled = true;
-            submitBtn.innerHTML = '<span class="loading"></span>注册中...';
-
-            try {
-                const response = await fetch(`${API_BASE_URL}/api/auth/register`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify(formData),
-                });
-
-                const data = await response.json();
-
-                if (!response.ok) {
-                    // 处理错误响应
-                    if (data.detail) {
-                        if (typeof data.detail === 'string') {
-                            // 单个错误消息
-                            if (data.detail.includes('Email')) {
-                                showError('email', data.detail);
-                            } else if (data.detail.includes('Username')) {
-                                showError('username', data.detail);
-                            } else {
-                                showError('email', data.detail);
-                            }
-                        } else if (Array.isArray(data.detail)) {
-                            // 多个验证错误
-                            data.detail.forEach(err => {
-                                const field = err.loc[err.loc.length - 1];
-                                showError(field, err.msg);
-                            });
-                        }
-                    }
-                    throw new Error(data.detail || '注册失败');
+            const showFieldError = (name, message) => {
+                const errorEl = fieldErrors.find((el) => el.dataset.errorFor === name);
+                if (errorEl) {
+                    errorEl.textContent = message;
+                    errorEl.removeAttribute('hidden');
                 }
 
-                // 注册成功
-                if (data.access_token) {
-                    // 保存token到localStorage
-                    localStorage.setItem('dsbp_access_token', data.access_token);
-                    
-                    showSuccess(`注册成功！欢迎，${data.user.username}！`);
-                    
-                    // 3秒后跳转到主页或登录页
-                    setTimeout(() => {
-                        window.location.href = 'index.html';
-                    }, 2000);
+                const input = form.elements[name];
+                if (input) {
+                    input.classList.add('has-error');
+                    input.focus({ preventScroll: true });
+                }
+            };
+
+            const setGeneralError = (message) => {
+                if (!generalAlert) {
+                    return;
                 }
 
-            } catch (error) {
-                console.error('注册错误:', error);
-                if (!error.message.includes('注册成功')) {
-                    showError('email', error.message || '注册失败，请稍后重试');
-                }
-            } finally {
-                submitBtn.disabled = false;
-                submitBtn.textContent = '注册账户';
-            }
-        });
+                generalAlert.textContent = message;
+                generalAlert.removeAttribute('hidden');
+            };
 
-        // 实时清除错误状态
-        document.querySelectorAll('input').forEach(input => {
-            input.addEventListener('input', () => {
-                if (input.classList.contains('error')) {
-                    input.classList.remove('error');
-                    const errorEl = document.getElementById(input.id + 'Error');
-                    if (errorEl) {
-                        errorEl.classList.remove('show');
-                    }
+            const clearGeneralError = () => {
+                if (!generalAlert) {
+                    return;
+                }
+
+                generalAlert.textContent = '';
+                generalAlert.setAttribute('hidden', '');
+            };
+
+            const showSuccess = (message) => {
+                if (!successBanner) {
+                    return;
+                }
+
+                successBanner.textContent = message;
+                successBanner.removeAttribute('hidden');
+            };
+
+            const clearSuccess = () => {
+                if (!successBanner) {
+                    return;
+                }
+
+                successBanner.textContent = '';
+                successBanner.setAttribute('hidden', '');
+            };
+
+            const setLoading = (isLoading) => {
+                if (!submitButton) {
+                    return;
+                }
+
+                if (isLoading) {
+                    submitButton.dataset.originalText = submitButton.textContent.trim();
+                    submitButton.innerHTML = '<span class="auth-spinner" aria-hidden="true"></span>处理中...';
+                    submitButton.disabled = true;
+                } else {
+                    submitButton.disabled = false;
+                    const label = submitButton.dataset.originalText || '创建账户';
+                    submitButton.textContent = label;
+                    delete submitButton.dataset.originalText;
+                }
+            };
+
+            form.addEventListener('input', (event) => {
+                if (event.target instanceof HTMLInputElement) {
+                    clearFieldError(event.target.name);
+                    clearGeneralError();
+                    clearSuccess();
                 }
             });
-        });
+
+            form.addEventListener('submit', async (event) => {
+                event.preventDefault();
+                debugLogger.clear();
+                clearGeneralError();
+                clearSuccess();
+                fieldErrors.forEach((el) => el.setAttribute('hidden', ''));
+                Array.from(form.elements).forEach((el) => {
+                    if (el instanceof HTMLInputElement) {
+                        el.classList.remove('has-error');
+                    }
+                });
+
+                const email = form.elements.email.value.trim();
+                const username = form.elements.username.value.trim();
+                const password = form.elements.password.value;
+                const fullName = form.elements.fullName.value.trim();
+
+                log('form:submit', { email, username });
+
+                if (!email) {
+                    log('validation:email', 'Email is required');
+                    showFieldError('email', '请输入邮箱地址');
+                    return;
+                }
+
+                if (!/.+@.+/.test(email)) {
+                    log('validation:email', 'Invalid email format');
+                    showFieldError('email', '邮箱格式不正确');
+                    return;
+                }
+
+                if (!username) {
+                    log('validation:username', 'Username is required');
+                    showFieldError('username', '请输入用户名');
+                    return;
+                }
+
+                if (!password || password.length < 8) {
+                    log('validation:password', 'Password must be at least 8 characters');
+                    showFieldError('password', '密码至少需要 8 个字符');
+                    return;
+                }
+
+                setLoading(true);
+
+                try {
+                    const payload = {
+                        email,
+                        username,
+                        password,
+                        full_name: fullName || null,
+                    };
+
+                    const result = await DSBPAuth.requestAuth('register', payload, {
+                        baseUrl: apiBaseUrl,
+                        onDebug: log,
+                    });
+
+                    if (!result.ok) {
+                        const message = DSBPAuth.parseErrorMessage(result, '注册失败，请稍后重试。');
+                        log('register:failed', { message, status: result.status });
+                        if (result.data && typeof result.data === 'object' && Array.isArray(result.data.detail)) {
+                            result.data.detail.forEach((detail) => {
+                                const field = detail.loc?.[detail.loc.length - 1];
+                                if (typeof field === 'string') {
+                                    showFieldError(field, detail.msg || '字段验证失败');
+                                }
+                            });
+                        } else {
+                            setGeneralError(message);
+                        }
+                        return;
+                    }
+
+                    if (!result.data || typeof result.data !== 'object') {
+                        log('register:unexpected-response', result.data);
+                        setGeneralError('服务器返回了未知的响应，请稍后再试。');
+                        return;
+                    }
+
+                    const { access_token: token, user } = result.data;
+
+                    if (!token) {
+                        log('register:missing-token', result.data);
+                        setGeneralError('注册响应缺少访问令牌。');
+                        return;
+                    }
+
+                    DSBPAuth.persistSession(token, user || null);
+                    showSuccess('注册成功！即将为您跳转到主页...');
+                    log('register:success', { userId: user?.id, username: user?.username });
+
+                    setTimeout(() => {
+                        window.location.href = 'index.html';
+                    }, 1800);
+                } catch (error) {
+                    log('register:exception', { message: error.message });
+                    setGeneralError(error.message || '注册失败，请稍后重试。');
+                } finally {
+                    setLoading(false);
+                }
+            });
+        })();
     </script>
 </body>
 </html>
-

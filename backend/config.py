@@ -1,16 +1,19 @@
-"""
-DSBP Configuration Settings
-"""
+"""DSBP Configuration Settings."""
+
+from typing import List, Optional
+
+from pydantic import Field
 from pydantic_settings import BaseSettings
-from typing import List
 
 
 class Settings(BaseSettings):
+    """Application configuration loaded from environment variables."""
+
     # Database
-    DATABASE_URL: str
-    
+    DATABASE_URL: Optional[str] = None
+
     # JWT
-    JWT_SECRET_KEY: str
+    JWT_SECRET_KEY: str = Field(default="dev-secret-key-change-me")
     JWT_ALGORITHM: str = "HS256"
     JWT_ACCESS_TOKEN_EXPIRE_MINUTES: int = 1440
     
@@ -38,7 +41,12 @@ class Settings(BaseSettings):
     
     @property
     def cors_origins_list(self) -> List[str]:
-        return [origin.strip() for origin in self.CORS_ORIGINS.split(",")]
+        """Return the configured CORS origins as a sanitized list."""
+
+        if not self.CORS_ORIGINS:
+            return []
+
+        return [origin.strip() for origin in self.CORS_ORIGINS.split(",") if origin.strip()]
     
     class Config:
         env_file = ".env"
