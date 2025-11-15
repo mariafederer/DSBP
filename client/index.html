@@ -1,0 +1,1033 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DSBP 项目面板</title>
+    <style>
+        :root {
+            --primary: #667eea;
+            --primary-dark: #4c51bf;
+            --bg: #f5f7fb;
+            --text: #1f2933;
+            --muted: #6c7a89;
+            --card-bg: #ffffff;
+            --border: #e0e6ef;
+            --danger: #e74c3c;
+            --success: #2ecc71;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            font-family: "Segoe UI", -apple-system, BlinkMacSystemFont, "Helvetica Neue", Arial, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            min-height: 100vh;
+        }
+
+        .app {
+            display: grid;
+            grid-template-columns: 320px 1fr;
+            min-height: 100vh;
+        }
+
+        aside {
+            background: linear-gradient(180deg, #4c51bf 0%, #2b6cb0 100%);
+            color: #fff;
+            padding: 24px 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 24px;
+        }
+
+        .user-summary {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            padding-bottom: 12px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .user-summary h1 {
+            font-size: 1.5rem;
+            margin: 0;
+        }
+
+        .user-summary button {
+            align-self: flex-start;
+            background: rgba(255, 255, 255, 0.15);
+            border: none;
+            color: #fff;
+            padding: 6px 12px;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: background 0.2s ease;
+        }
+
+        .user-summary button:hover {
+            background: rgba(255, 255, 255, 0.25);
+        }
+
+        .projects-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .projects-header h2 {
+            margin: 0 0 12px;
+            font-size: 1.1rem;
+        }
+
+        .project-list {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            max-height: 40vh;
+            overflow-y: auto;
+            padding-right: 4px;
+        }
+
+        .project-item {
+            background: rgba(255, 255, 255, 0.12);
+            border-radius: 10px;
+            padding: 12px;
+            cursor: pointer;
+            transition: transform 0.2s ease, background 0.2s ease;
+            position: relative;
+        }
+
+        .project-item.active {
+            background: rgba(255, 255, 255, 0.2);
+            transform: translateX(4px);
+        }
+
+        .project-item .project-name {
+            font-size: 1rem;
+            font-weight: 600;
+        }
+
+        .project-item .project-meta {
+            font-size: 0.75rem;
+            opacity: 0.8;
+            margin-top: 4px;
+        }
+
+        .delete-project {
+            position: absolute;
+            top: 8px;
+            right: 8px;
+            background: rgba(231, 76, 60, 0.85);
+            border: none;
+            color: #fff;
+            border-radius: 50%;
+            width: 24px;
+            height: 24px;
+            font-size: 0.8rem;
+            cursor: pointer;
+        }
+
+        form {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        input, textarea, select {
+            width: 100%;
+            padding: 10px 12px;
+            border-radius: 8px;
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            background: rgba(255, 255, 255, 0.12);
+            color: #fff;
+        }
+
+        input::placeholder, textarea::placeholder {
+            color: rgba(255, 255, 255, 0.7);
+        }
+
+        textarea {
+            resize: vertical;
+            min-height: 80px;
+        }
+
+        button.primary {
+            background: var(--primary);
+            color: #fff;
+            border: none;
+            padding: 10px 14px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: background 0.2s ease;
+        }
+
+        button.primary:hover {
+            background: var(--primary-dark);
+        }
+
+        main {
+            padding: 24px;
+            overflow-y: auto;
+        }
+
+        .notifications {
+            background: var(--card-bg);
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 24px;
+            box-shadow: 0 10px 30px rgba(15, 23, 42, 0.08);
+        }
+
+        .notifications h2 {
+            margin-top: 0;
+            font-size: 1.3rem;
+        }
+
+        .notification-list {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            max-height: 180px;
+            overflow-y: auto;
+        }
+
+        .notification-item {
+            background: #f1f5ff;
+            border-radius: 10px;
+            padding: 12px 14px;
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            gap: 12px;
+        }
+
+        .notification-item.unread {
+            border-left: 4px solid var(--primary);
+        }
+
+        .notification-item button {
+            background: none;
+            border: none;
+            color: var(--primary);
+            font-weight: 600;
+            cursor: pointer;
+        }
+
+        .board-header {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            margin-bottom: 16px;
+        }
+
+        .board-header h2 {
+            margin: 0;
+            font-size: 1.6rem;
+        }
+
+        .board-header p {
+            margin: 0;
+            color: var(--muted);
+        }
+
+        .boards-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+            gap: 20px;
+        }
+
+        .board-column {
+            background: var(--card-bg);
+            border-radius: 12px;
+            padding: 16px;
+            box-shadow: 0 10px 30px rgba(15, 23, 42, 0.08);
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            max-height: 75vh;
+        }
+
+        .board-column h3 {
+            margin: 0;
+            font-size: 1.1rem;
+        }
+
+        .task-list {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            overflow-y: auto;
+            padding-right: 4px;
+        }
+
+        .task-card {
+            background: #f8f9fd;
+            border-radius: 10px;
+            padding: 12px;
+            cursor: pointer;
+            border: 1px solid var(--border);
+            transition: box-shadow 0.2s ease;
+        }
+
+        .task-card:hover {
+            box-shadow: 0 8px 20px rgba(15, 23, 42, 0.12);
+        }
+
+        .task-card .title {
+            font-weight: 600;
+            margin-bottom: 6px;
+        }
+
+        .task-card .meta {
+            font-size: 0.8rem;
+            color: var(--muted);
+        }
+
+        .empty-state {
+            color: var(--muted);
+            font-style: italic;
+        }
+
+        .modal {
+            position: fixed;
+            inset: 0;
+            background: rgba(15, 23, 42, 0.45);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            padding: 24px;
+            z-index: 1000;
+        }
+
+        .modal.show {
+            display: flex;
+        }
+
+        .modal-content {
+            background: var(--card-bg);
+            max-width: 760px;
+            width: 100%;
+            max-height: 90vh;
+            border-radius: 16px;
+            padding: 24px;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+            overflow: hidden;
+            position: relative;
+        }
+
+        .modal-close {
+            position: absolute;
+            top: 16px;
+            right: 16px;
+            background: none;
+            border: none;
+            font-size: 1.5rem;
+            cursor: pointer;
+        }
+
+        .comment-thread {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            overflow-y: auto;
+            padding-right: 4px;
+        }
+
+        .comment-item {
+            background: #f8f9fd;
+            border-radius: 10px;
+            padding: 12px;
+            border: 1px solid var(--border);
+        }
+
+        .comment-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 6px;
+        }
+
+        .comment-author {
+            font-weight: 600;
+        }
+
+        .comment-meta {
+            color: var(--muted);
+            font-size: 0.8rem;
+        }
+
+        .comment-body {
+            margin-bottom: 8px;
+            line-height: 1.5;
+            white-space: pre-wrap;
+        }
+
+        .comment-actions {
+            display: flex;
+            gap: 8px;
+        }
+
+        .comment-actions button {
+            background: none;
+            border: none;
+            color: var(--primary-dark);
+            cursor: pointer;
+            font-weight: 600;
+        }
+
+        .comment-resolved {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 0.85rem;
+            color: var(--success);
+        }
+
+        .mention-list {
+            color: var(--primary-dark);
+            font-size: 0.85rem;
+        }
+
+        .reply-container {
+            border-left: 2px solid rgba(102, 126, 234, 0.25);
+            margin-left: 12px;
+            padding-left: 12px;
+            margin-top: 10px;
+        }
+
+        .form-inline {
+            display: flex;
+            gap: 8px;
+        }
+
+        .form-inline input {
+            background: #ffffff;
+            color: var(--text);
+            border: 1px solid var(--border);
+        }
+
+        .form-inline button {
+            padding: 10px 14px;
+        }
+
+        .comment-form textarea {
+            background: #ffffff;
+            color: var(--text);
+            border: 1px solid var(--border);
+        }
+
+        .comment-form button {
+            align-self: flex-end;
+        }
+
+        @media (max-width: 960px) {
+            .app {
+                grid-template-columns: 1fr;
+            }
+
+            aside {
+                flex-direction: column;
+                gap: 16px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="app">
+        <aside>
+            <div class="user-summary">
+                <h1>DSBP</h1>
+                <p id="userName"></p>
+                <button id="logoutBtn">退出登录</button>
+            </div>
+            <div>
+                <div class="projects-header">
+                    <h2>项目列表</h2>
+                    <button id="refreshProjects" class="primary" style="padding:6px 10px;font-size:0.85rem;">刷新</button>
+                </div>
+                <div id="projectsList" class="project-list"></div>
+            </div>
+            <div>
+                <h3 style="margin:0 0 8px;">创建新项目</h3>
+                <form id="projectForm">
+                    <input type="text" id="projectName" placeholder="项目名称" required>
+                    <textarea id="projectDescription" placeholder="项目描述（可选）"></textarea>
+                    <button type="submit" class="primary">创建项目</button>
+                </form>
+            </div>
+        </aside>
+        <main>
+            <section class="notifications">
+                <h2>通知</h2>
+                <div id="notificationsList" class="notification-list"></div>
+            </section>
+            <section id="boardSection">
+                <div class="board-header">
+                    <h2 id="boardTitle">请选择左侧的一个项目</h2>
+                    <p id="boardDescription"></p>
+                </div>
+                <div id="boardActions" style="display:none; margin-bottom:16px;">
+                    <form id="boardForm" class="form-inline">
+                        <input type="text" id="boardName" placeholder="新看板名称" required>
+                        <button type="submit" class="primary">新增看板</button>
+                    </form>
+                </div>
+                <div id="boardsContainer" class="boards-container"></div>
+            </section>
+        </main>
+    </div>
+
+    <div id="taskModal" class="modal" role="dialog" aria-modal="true">
+        <div class="modal-content">
+            <button class="modal-close" id="closeModal" aria-label="关闭">×</button>
+            <div>
+                <h2 id="modalTaskTitle"></h2>
+                <p id="modalTaskMeta" class="comment-meta"></p>
+                <p id="modalTaskDescription"></p>
+            </div>
+            <div class="comment-thread" id="commentsContainer"></div>
+            <form id="commentForm" class="comment-form">
+                <textarea id="commentContent" placeholder="添加评论，支持 @用户名" required></textarea>
+                <input type="hidden" id="replyToCommentId">
+                <div style="display:flex; gap:8px; align-items:center;">
+                    <button type="submit" class="primary">提交评论</button>
+                    <button type="button" id="cancelReply" style="display:none;">取消回复</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE_URL = 'http://localhost:8000';
+        const token = localStorage.getItem('dsbp_access_token');
+
+        if (!token) {
+            window.location.href = 'login.html';
+        }
+
+        const state = {
+            user: null,
+            projects: [],
+            currentProject: null,
+            projectMembers: [],
+            boards: [],
+            tasksByBoard: {},
+            currentTask: null,
+        };
+
+        const userNameEl = document.getElementById('userName');
+        const logoutBtn = document.getElementById('logoutBtn');
+        const projectsListEl = document.getElementById('projectsList');
+        const projectForm = document.getElementById('projectForm');
+        const boardForm = document.getElementById('boardForm');
+        const boardsContainer = document.getElementById('boardsContainer');
+        const boardTitle = document.getElementById('boardTitle');
+        const boardDescription = document.getElementById('boardDescription');
+        const boardActions = document.getElementById('boardActions');
+        const notificationsList = document.getElementById('notificationsList');
+        const taskModal = document.getElementById('taskModal');
+        const closeModalBtn = document.getElementById('closeModal');
+        const modalTaskTitle = document.getElementById('modalTaskTitle');
+        const modalTaskMeta = document.getElementById('modalTaskMeta');
+        const modalTaskDescription = document.getElementById('modalTaskDescription');
+        const commentsContainer = document.getElementById('commentsContainer');
+        const commentForm = document.getElementById('commentForm');
+        const commentContent = document.getElementById('commentContent');
+        const replyToCommentId = document.getElementById('replyToCommentId');
+        const cancelReplyBtn = document.getElementById('cancelReply');
+        const refreshProjectsBtn = document.getElementById('refreshProjects');
+
+        async function apiFetch(path, options = {}) {
+            const headers = options.headers || {};
+            headers['Content-Type'] = 'application/json';
+            headers['Authorization'] = `Bearer ${token}`;
+            const response = await fetch(`${API_BASE_URL}/api${path}`, {
+                ...options,
+                headers,
+            });
+            if (!response.ok) {
+                let message = '操作失败，请稍后再试';
+                try {
+                    const errorData = await response.json();
+                    if (errorData.detail) {
+                        message = Array.isArray(errorData.detail) ? errorData.detail[0].msg : errorData.detail;
+                    }
+                } catch (err) {
+                    // ignore
+                }
+                throw new Error(message);
+            }
+            if (response.status === 204) {
+                return null;
+            }
+            return response.json();
+        }
+
+        function formatDate(dateStr) {
+            if (!dateStr) return '';
+            const date = new Date(dateStr);
+            return date.toLocaleString();
+        }
+
+        function renderProjects() {
+            projectsListEl.innerHTML = '';
+            if (state.projects.length === 0) {
+                const empty = document.createElement('div');
+                empty.className = 'empty-state';
+                empty.textContent = '暂无项目，快来创建一个吧！';
+                projectsListEl.appendChild(empty);
+                return;
+            }
+
+            state.projects.forEach(project => {
+                const item = document.createElement('div');
+                item.className = 'project-item' + (state.currentProject && state.currentProject.id === project.id ? ' active' : '');
+                item.addEventListener('click', () => selectProject(project.id));
+
+                const name = document.createElement('div');
+                name.className = 'project-name';
+                name.textContent = project.name;
+
+                const meta = document.createElement('div');
+                meta.className = 'project-meta';
+                meta.textContent = `创建于 ${formatDate(project.created_at)}`;
+
+                item.appendChild(name);
+                item.appendChild(meta);
+
+                if (state.user && project.owner_id === state.user.id) {
+                    const deleteBtn = document.createElement('button');
+                    deleteBtn.className = 'delete-project';
+                    deleteBtn.textContent = '×';
+                    deleteBtn.title = '删除项目';
+                    deleteBtn.addEventListener('click', async (event) => {
+                        event.stopPropagation();
+                        if (confirm('确定要删除该项目吗？')) {
+                            await apiFetch(`/projects/${project.id}`, { method: 'DELETE' });
+                            if (state.currentProject && state.currentProject.id === project.id) {
+                                state.currentProject = null;
+                            }
+                            await loadProjects();
+                        }
+                    });
+                    item.appendChild(deleteBtn);
+                }
+
+                projectsListEl.appendChild(item);
+            });
+        }
+
+        async function loadProjects() {
+            const data = await apiFetch('/projects');
+            state.projects = data;
+            renderProjects();
+            if (state.currentProject) {
+                const stillExists = data.find(p => p.id === state.currentProject.id);
+                if (!stillExists) {
+                    clearBoard();
+                }
+            }
+        }
+
+        function clearBoard() {
+            state.currentProject = null;
+            state.boards = [];
+            state.tasksByBoard = {};
+            boardTitle.textContent = '请选择左侧的一个项目';
+            boardDescription.textContent = '';
+            boardActions.style.display = 'none';
+            boardsContainer.innerHTML = '';
+        }
+
+        async function selectProject(projectId) {
+            const project = state.projects.find(p => p.id === projectId);
+            if (!project) return;
+            state.currentProject = project;
+            boardTitle.textContent = project.name;
+            boardDescription.textContent = project.description || '';
+            boardActions.style.display = 'block';
+            renderProjects();
+
+            await Promise.all([
+                loadProjectMembers(projectId),
+                loadBoards(projectId),
+            ]);
+            await loadNotifications();
+        }
+
+        async function loadProjectMembers(projectId) {
+            const members = await apiFetch(`/projects/${projectId}/members`);
+            state.projectMembers = members;
+        }
+
+        async function loadBoards(projectId) {
+            const boards = await apiFetch(`/task-boards/project/${projectId}`);
+            state.boards = boards;
+            state.tasksByBoard = {};
+
+            for (const board of boards) {
+                const tasks = await apiFetch(`/tasks/board/${board.id}`);
+                state.tasksByBoard[board.id] = tasks;
+            }
+
+            renderBoards();
+        }
+
+        function renderBoards() {
+            boardsContainer.innerHTML = '';
+            if (!state.currentProject) {
+                return;
+            }
+
+            if (state.boards.length === 0) {
+                const empty = document.createElement('div');
+                empty.className = 'empty-state';
+                empty.textContent = '该项目还没有看板，创建一个吧。';
+                boardsContainer.appendChild(empty);
+                return;
+            }
+
+            state.boards.forEach(board => {
+                const column = document.createElement('div');
+                column.className = 'board-column';
+
+                const header = document.createElement('h3');
+                header.textContent = board.name;
+                column.appendChild(header);
+
+                const taskList = document.createElement('div');
+                taskList.className = 'task-list';
+
+                const tasks = state.tasksByBoard[board.id] || [];
+                if (tasks.length === 0) {
+                    const empty = document.createElement('div');
+                    empty.className = 'empty-state';
+                    empty.textContent = '暂无任务';
+                    taskList.appendChild(empty);
+                } else {
+                    tasks.forEach(task => {
+                        const card = document.createElement('div');
+                        card.className = 'task-card';
+                        card.addEventListener('click', () => openTaskModal(board, task));
+
+                        const title = document.createElement('div');
+                        title.className = 'title';
+                        title.textContent = task.title;
+
+                        const meta = document.createElement('div');
+                        meta.className = 'meta';
+                        meta.textContent = `状态：${task.status}`;
+
+                        card.appendChild(title);
+                        if (task.description) {
+                            const desc = document.createElement('div');
+                            desc.className = 'meta';
+                            desc.textContent = task.description;
+                            card.appendChild(desc);
+                        }
+                        card.appendChild(meta);
+                        taskList.appendChild(card);
+                    });
+                }
+
+                column.appendChild(taskList);
+
+                const taskForm = document.createElement('form');
+                taskForm.className = 'form-inline';
+                taskForm.innerHTML = `
+                    <input type="text" name="title" placeholder="新增任务" required>
+                    <button type="submit" class="primary">添加</button>
+                `;
+                taskForm.addEventListener('submit', async (event) => {
+                    event.preventDefault();
+                    const formData = new FormData(taskForm);
+                    const title = formData.get('title').trim();
+                    if (!title) return;
+                    await apiFetch('/tasks', {
+                        method: 'POST',
+                        body: JSON.stringify({
+                            title,
+                            description: null,
+                            board_id: board.id,
+                        }),
+                    });
+                    taskForm.reset();
+                    await loadBoards(state.currentProject.id);
+                });
+                column.appendChild(taskForm);
+
+                boardsContainer.appendChild(column);
+            });
+        }
+
+        function openTaskModal(board, task) {
+            state.currentTask = { ...task, board };
+            modalTaskTitle.textContent = task.title;
+            modalTaskMeta.textContent = `${board.name} · 状态：${task.status}`;
+            modalTaskDescription.textContent = task.description || '暂无描述';
+            commentContent.value = '';
+            replyToCommentId.value = '';
+            cancelReplyBtn.style.display = 'none';
+            taskModal.classList.add('show');
+            loadComments(task.id);
+        }
+
+        async function loadComments(taskId) {
+            const comments = await apiFetch(`/comments/task/${taskId}`);
+            commentsContainer.innerHTML = '';
+            if (comments.length === 0) {
+                const empty = document.createElement('div');
+                empty.className = 'empty-state';
+                empty.textContent = '暂无评论，快来发表第一条吧！';
+                commentsContainer.appendChild(empty);
+                return;
+            }
+            comments.forEach(comment => commentsContainer.appendChild(renderCommentNode(comment)));
+        }
+
+        function renderCommentNode(comment, depth = 0) {
+            const wrapper = document.createElement('div');
+            wrapper.className = 'comment-item';
+
+            const header = document.createElement('div');
+            header.className = 'comment-header';
+
+            const author = document.createElement('div');
+            author.className = 'comment-author';
+            author.textContent = comment.author.full_name || comment.author.username;
+
+            const meta = document.createElement('div');
+            meta.className = 'comment-meta';
+            meta.textContent = formatDate(comment.created_at);
+
+            header.appendChild(author);
+            header.appendChild(meta);
+            wrapper.appendChild(header);
+
+            if (comment.mentions && comment.mentions.length > 0) {
+                const mentions = document.createElement('div');
+                mentions.className = 'mention-list';
+                const names = comment.mentions.map(user => `@${user.username}`);
+                mentions.textContent = `提及：${names.join('、')}`;
+                wrapper.appendChild(mentions);
+            }
+
+            const body = document.createElement('div');
+            body.className = 'comment-body';
+            body.textContent = comment.content;
+            wrapper.appendChild(body);
+
+            if (comment.is_resolved) {
+                const resolved = document.createElement('div');
+                resolved.className = 'comment-resolved';
+                resolved.textContent = comment.resolved_by ? `已解决 · 由 ${comment.resolved_by.full_name || comment.resolved_by.username}` : '已解决';
+                wrapper.appendChild(resolved);
+            }
+
+            const actions = document.createElement('div');
+            actions.className = 'comment-actions';
+
+            const canReply = Boolean(state.currentTask);
+            if (canReply) {
+                const replyBtn = document.createElement('button');
+                replyBtn.type = 'button';
+                replyBtn.textContent = '回复';
+                replyBtn.addEventListener('click', () => {
+                    replyToCommentId.value = comment.id;
+                    cancelReplyBtn.style.display = 'inline-flex';
+                    commentContent.focus();
+                });
+                actions.appendChild(replyBtn);
+            }
+
+            const currentUserId = state.user ? state.user.id : null;
+            const projectOwnerId = state.currentProject ? state.currentProject.owner_id : null;
+            const mentionIds = (comment.mentions || []).map(user => user.id);
+            const canResolve = currentUserId && (!comment.is_resolved && (mentionIds.includes(currentUserId) || comment.author.id === currentUserId || projectOwnerId === currentUserId));
+            const canReopen = currentUserId && comment.is_resolved && (comment.author.id === currentUserId || projectOwnerId === currentUserId);
+
+            if (canResolve || canReopen) {
+                const actionBtn = document.createElement('button');
+                actionBtn.type = 'button';
+                actionBtn.textContent = canResolve ? '标记为已解决' : '重新打开';
+                actionBtn.addEventListener('click', async () => {
+                    await apiFetch(`/comments/${comment.id}/resolve`, {
+                        method: 'PATCH',
+                        body: JSON.stringify({ is_resolved: canResolve }),
+                    });
+                    await Promise.all([
+                        loadComments(state.currentTask.id),
+                        loadNotifications(),
+                    ]);
+                });
+                actions.appendChild(actionBtn);
+            }
+
+            wrapper.appendChild(actions);
+
+            if (comment.replies && comment.replies.length > 0) {
+                const repliesContainer = document.createElement('div');
+                repliesContainer.className = 'reply-container';
+                comment.replies.forEach(reply => repliesContainer.appendChild(renderCommentNode(reply, depth + 1)));
+                wrapper.appendChild(repliesContainer);
+            }
+
+            return wrapper;
+        }
+
+        function collectMentionIds(content) {
+            const mentionPattern = /@([A-Za-z0-9_.-]+)/g;
+            const matches = content.matchAll(mentionPattern);
+            const usernames = new Set();
+            for (const match of matches) {
+                usernames.add(match[1]);
+            }
+            const ids = new Set();
+            state.projectMembers.forEach(member => {
+                if (usernames.has(member.user.username)) {
+                    ids.add(member.user.id);
+                }
+            });
+            return Array.from(ids);
+        }
+
+        async function loadNotifications() {
+            const notifications = await apiFetch('/notifications');
+            notificationsList.innerHTML = '';
+            if (notifications.length === 0) {
+                const empty = document.createElement('div');
+                empty.className = 'empty-state';
+                empty.textContent = '暂无通知';
+                notificationsList.appendChild(empty);
+                return;
+            }
+
+            notifications.forEach(notification => {
+                const item = document.createElement('div');
+                item.className = 'notification-item' + (notification.is_read ? '' : ' unread');
+
+                const info = document.createElement('div');
+                info.innerHTML = `<strong>${notification.task_title}</strong> · ${notification.project_name}<br>${notification.message}<br><span class="comment-meta">${formatDate(notification.created_at)}</span>`;
+
+                item.appendChild(info);
+
+                if (!notification.is_read) {
+                    const markBtn = document.createElement('button');
+                    markBtn.type = 'button';
+                    markBtn.textContent = '标记为已读';
+                    markBtn.addEventListener('click', async () => {
+                        await apiFetch(`/notifications/${notification.id}`, {
+                            method: 'PATCH',
+                            body: JSON.stringify({ is_read: true }),
+                        });
+                        await loadNotifications();
+                    });
+                    item.appendChild(markBtn);
+                }
+
+                notificationsList.appendChild(item);
+            });
+        }
+
+        logoutBtn.addEventListener('click', () => {
+            localStorage.removeItem('dsbp_access_token');
+            window.location.href = 'login.html';
+        });
+
+        refreshProjectsBtn.addEventListener('click', loadProjects);
+
+        projectForm.addEventListener('submit', async (event) => {
+            event.preventDefault();
+            const name = document.getElementById('projectName').value.trim();
+            const description = document.getElementById('projectDescription').value.trim();
+            if (!name) return;
+            await apiFetch('/projects', {
+                method: 'POST',
+                body: JSON.stringify({ name, description: description || null }),
+            });
+            projectForm.reset();
+            await loadProjects();
+        });
+
+        boardForm.addEventListener('submit', async (event) => {
+            event.preventDefault();
+            if (!state.currentProject) return;
+            const name = document.getElementById('boardName').value.trim();
+            if (!name) return;
+            await apiFetch('/task-boards', {
+                method: 'POST',
+                body: JSON.stringify({
+                    project_id: state.currentProject.id,
+                    name,
+                }),
+            });
+            boardForm.reset();
+            await loadBoards(state.currentProject.id);
+        });
+
+        closeModalBtn.addEventListener('click', () => {
+            taskModal.classList.remove('show');
+        });
+
+        taskModal.addEventListener('click', (event) => {
+            if (event.target === taskModal) {
+                taskModal.classList.remove('show');
+            }
+        });
+
+        commentForm.addEventListener('submit', async (event) => {
+            event.preventDefault();
+            if (!state.currentTask) return;
+            const content = commentContent.value.trim();
+            if (!content) return;
+            const mentions = collectMentionIds(content);
+            const payload = {
+                task_id: state.currentTask.id,
+                content,
+                parent_comment_id: replyToCommentId.value ? Number(replyToCommentId.value) : null,
+                mentions,
+            };
+            await apiFetch('/comments', {
+                method: 'POST',
+                body: JSON.stringify(payload),
+            });
+            commentContent.value = '';
+            replyToCommentId.value = '';
+            cancelReplyBtn.style.display = 'none';
+            await Promise.all([
+                loadComments(state.currentTask.id),
+                loadNotifications(),
+            ]);
+        });
+
+        cancelReplyBtn.addEventListener('click', () => {
+            replyToCommentId.value = '';
+            cancelReplyBtn.style.display = 'none';
+        });
+
+        async function init() {
+            try {
+                const user = await apiFetch('/auth/me');
+                state.user = user;
+                userNameEl.textContent = user.full_name || user.username;
+                await loadProjects();
+                await loadNotifications();
+            } catch (error) {
+                alert(error.message);
+                localStorage.removeItem('dsbp_access_token');
+                window.location.href = 'login.html';
+            }
+        }
+
+        init();
+    </script>
+</body>
+</html>

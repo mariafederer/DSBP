@@ -7,6 +7,15 @@ from typing import Optional
 from backend.models.user import UserRole, LicenseType
 
 
+class UserSummary(BaseModel):
+    id: int
+    username: str
+    full_name: Optional[str] = None
+
+    class Config:
+        from_attributes = True
+
+
 class UserCreate(BaseModel):
     email: EmailStr
     username: str
