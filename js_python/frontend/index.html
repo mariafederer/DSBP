@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Kanban Web App</title>
+    <title>Digital Software Building System</title>
     <link rel="stylesheet" href="/static/styles.css" />
   </head>
   <body>
@@ -12,7 +12,7 @@
         <div class="brand">
           <div class="logo">K</div>
           <div>
-            <h1>Orchid Kanban</h1>
+            <h1>Digital Software Building System</h1>
             <p class="subtitle">Organise projects with calm efficiency</p>
           </div>
         </div>
@@ -32,6 +32,16 @@
               <input type="text" id="project-name" placeholder="e.g. Launch plan" required />
               <label for="project-description">Description</label>
               <textarea id="project-description" placeholder="Optional summary"></textarea>
+              <label for="project-visibility">Visibility</label>
+              <select id="project-visibility">
+                <option value="all" selected>All users</option>
+                <option value="private">Private</option>
+                <option value="selected">Selected users</option>
+              </select>
+              <div id="share-users-wrapper" class="stacked hidden">
+                <p class="help-text">Pick collaborators who can view this project.</p>
+                <div id="share-user-options" class="share-checkboxes"></div>
+              </div>
               <button type="submit" class="primary-button">Create project</button>
             </form>
           </div>

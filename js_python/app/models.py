@@ -1,8 +1,25 @@
 from datetime import datetime
-from sqlalchemy import Boolean, Column, DateTime, ForeignKey, Integer, String, Text
+from sqlalchemy import (
+    Boolean,
+    Column,
+    DateTime,
+    ForeignKey,
+    Integer,
+    String,
+    Table,
+    Text,
+)
 from sqlalchemy.orm import relationship
 
 from .database import Base
+
+
+project_shared_users = Table(
+    "project_shared_users",
+    Base.metadata,
+    Column("project_id", ForeignKey("projects.id", ondelete="CASCADE"), primary_key=True),
+    Column("user_id", ForeignKey("users.id", ondelete="CASCADE"), primary_key=True),
+)
 
 
 class User(Base):
@@ -23,6 +40,11 @@ class User(Base):
         cascade="all, delete-orphan",
         foreign_keys="Notification.recipient_id",
     )
+    shared_projects = relationship(
+        "Project",
+        secondary=project_shared_users,
+        back_populates="shared_users",
+    )
 
 
 class Project(Base):
@@ -33,9 +55,15 @@ class Project(Base):
     description = Column(Text, default="")
     owner_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow)
+    visibility = Column(String(20), default="all", nullable=False)
 
     owner = relationship("User", back_populates="projects")
     tasks = relationship("Task", back_populates="project", cascade="all, delete-orphan")
+    shared_users = relationship(
+        "User",
+        secondary=project_shared_users,
+        back_populates="shared_projects",
+    )
 
 
 class Task(Base):
@@ -83,3 +111,23 @@ class Notification(Base):
 
     recipient = relationship("User", back_populates="notifications", foreign_keys=[recipient_id])
     comment = relationship("Comment", back_populates="notifications")
+
+    @property
+    def task_id(self):
+        return self.comment.task_id if self.comment else None
+
+    @property
+    def task_title(self):
+        return self.comment.task.title if self.comment and self.comment.task else None
+
+    @property
+    def project_id(self):
+        if self.comment and self.comment.task:
+            return self.comment.task.project_id
+        return None
+
+    @property
+    def project_name(self):
+        if self.comment and self.comment.task and self.comment.task.project:
+            return self.comment.task.project.name
+        return None

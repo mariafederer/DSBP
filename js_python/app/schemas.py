@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import List, Optional
+from typing import List, Literal, Optional
 
 from pydantic import BaseModel, EmailStr, Field
 
@@ -33,16 +33,25 @@ class Token(BaseModel):
 class ProjectBase(BaseModel):
     name: str
     description: Optional[str] = ""
+    visibility: Literal["all", "private", "selected"] = "all"
 
 
 class ProjectCreate(ProjectBase):
-    pass
+    shared_usernames: List[str] = Field(default_factory=list)
+
+
+class ProjectUpdate(BaseModel):
+    name: Optional[str] = None
+    description: Optional[str] = None
+    visibility: Optional[Literal["all", "private", "selected"]] = None
+    shared_usernames: Optional[List[str]] = None
 
 
 class ProjectOut(ProjectBase):
     id: int
     owner_id: int
     created_at: datetime
+    shared_users: List["UserOut"] = Field(default_factory=list)
 
     class Config:
         orm_mode = True
@@ -104,6 +113,10 @@ class NotificationOut(BaseModel):
     message: str
     read: bool
     created_at: datetime
+    project_id: Optional[int] = None
+    project_name: Optional[str] = None
+    task_id: Optional[int] = None
+    task_title: Optional[str] = None
 
     class Config:
         orm_mode = True

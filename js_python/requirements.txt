@@ -1,8 +1,7 @@
-fastapi
-uvicorn[standard]
-sqlalchemy
-# Pin passlib and bcrypt to known-compatible versions to avoid bcrypt backend issues
-passlib[bcrypt]>=1.7.4
+fastapi==0.115.0
+uvicorn[standard]==0.30.6
+sqlalchemy==2.0.36
+passlib[bcrypt]==1.7.4
 bcrypt==3.2.0
-python-jose
-pydantic
+python-jose==3.3.0
+pydantic==2.12.4

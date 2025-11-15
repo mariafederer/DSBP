@@ -22,10 +22,15 @@ function clearError() {
 async function handleLogin(event) {
   event.preventDefault();
   clearError();
+  if (!loginForm) {
+    return;
+  }
   const formData = new FormData(loginForm);
+  const usernameValue = formData.get("username");
+  const passwordValue = formData.get("password");
   const payload = {
-    username: formData.get("username")?.toString().trim(),
-    password: formData.get("password"),
+    username: usernameValue ? String(usernameValue).trim() : "",
+    password: passwordValue ? String(passwordValue) : "",
   };
 
   if (!payload.username || !payload.password) {
@@ -75,4 +80,6 @@ async function handleLogin(event) {
   }
 }
 
-loginForm?.addEventListener("submit", handleLogin);
+if (loginForm) {
+  loginForm.addEventListener("submit", handleLogin);
+}

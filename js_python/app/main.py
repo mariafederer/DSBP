@@ -1,12 +1,13 @@
 import re
 from datetime import timedelta
 from pathlib import Path
-from typing import List
+from typing import Iterable, List, Optional
 
 from fastapi import Depends, FastAPI, HTTPException, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
+from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
 from . import auth, models, schemas
@@ -35,6 +36,56 @@ def parse_mentions(content: str, db: Session) -> List[models.User]:
     if not usernames:
         return []
     return db.query(models.User).filter(models.User.username.in_(usernames)).all()
+
+
+def user_can_access_project(project: models.Project, user: models.User) -> bool:
+    if project.owner_id == user.id:
+        return True
+    if project.visibility == "all":
+        return True
+    if project.visibility == "selected":
+        return any(shared_user.id == user.id for shared_user in project.shared_users)
+    return False
+
+
+def ensure_project_access(project_id: int, db: Session, user: models.User) -> models.Project:
+    project = db.query(models.Project).filter(models.Project.id == project_id).first()
+    if not project:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Project not found")
+    if not user_can_access_project(project, user):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not allowed to access this project")
+    return project
+
+
+def apply_project_visibility(
+    project: models.Project, visibility: str, shared_usernames: Optional[Iterable[str]], db: Session
+) -> None:
+    project.visibility = visibility
+    if visibility != "selected":
+        project.shared_users.clear()
+        return
+
+    if shared_usernames is None:
+        return
+
+    clean_usernames = {username.strip() for username in shared_usernames if username and username.strip()}
+    if not clean_usernames:
+        project.shared_users.clear()
+        return
+
+    users = db.query(models.User).filter(models.User.username.in_(clean_usernames)).all()
+    found_usernames = {user.username for user in users}
+    missing = clean_usernames - found_usernames
+    if missing:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Unknown users: {', '.join(sorted(missing))}",
+        )
+
+    project.shared_users = sorted(
+        (user for user in users if user.id != project.owner_id),
+        key=lambda user: user.username.lower(),
+    )
 
 
 @app.post("/auth/register", response_model=schemas.UserOut, status_code=status.HTTP_201_CREATED)
@@ -68,15 +119,77 @@ def read_current_user(current_user: models.User = Depends(auth.get_current_user)
     return current_user
 
 
+@app.get("/users", response_model=List[schemas.UserOut])
+def list_users(db: Session = Depends(get_db), current_user: models.User = Depends(auth.get_current_user)):
+    return (
+        db.query(models.User)
+        .order_by(models.User.username.asc())
+        .all()
+    )
+
+
 @app.get("/projects", response_model=List[schemas.ProjectOut])
 def list_projects(db: Session = Depends(get_db), current_user: models.User = Depends(auth.get_current_user)):
-    return db.query(models.Project).filter(models.Project.owner_id == current_user.id).all()
+    projects = (
+        db.query(models.Project)
+        .filter(
+            or_(
+                models.Project.owner_id == current_user.id,
+                models.Project.visibility == "all",
+                models.Project.shared_users.any(models.User.id == current_user.id),
+            )
+        )
+        .distinct()
+        .order_by(models.Project.created_at.desc())
+        .all()
+    )
+    return projects
 
 
 @app.post("/projects", response_model=schemas.ProjectOut, status_code=status.HTTP_201_CREATED)
-def create_project(project_in: schemas.ProjectCreate, db: Session = Depends(get_db), current_user: models.User = Depends(auth.get_current_user)):
-    project = models.Project(name=project_in.name, description=project_in.description, owner_id=current_user.id)
+def create_project(
+    project_in: schemas.ProjectCreate,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(auth.get_current_user),
+):
+    project = models.Project(
+        name=project_in.name,
+        description=project_in.description,
+        owner_id=current_user.id,
+        visibility=project_in.visibility,
+    )
     db.add(project)
+    db.flush()
+    apply_project_visibility(project, project.visibility, project_in.shared_usernames, db)
+    db.commit()
+    db.refresh(project)
+    return project
+
+
+@app.patch("/projects/{project_id}", response_model=schemas.ProjectOut)
+def update_project(
+    project_id: int,
+    project_update: schemas.ProjectUpdate,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(auth.get_current_user),
+):
+    project = (
+        db.query(models.Project)
+        .filter(models.Project.id == project_id, models.Project.owner_id == current_user.id)
+        .first()
+    )
+    if not project:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Project not found")
+
+    update_data = project_update.dict(exclude_unset=True)
+    shared_usernames = update_data.pop("shared_usernames", None)
+
+    for field, value in update_data.items():
+        setattr(project, field, value)
+
+    if "visibility" in update_data or shared_usernames is not None:
+        apply_project_visibility(project, project.visibility, shared_usernames, db)
+
     db.commit()
     db.refresh(project)
     return project
@@ -92,26 +205,22 @@ def delete_project(project_id: int, db: Session = Depends(get_db), current_user:
 
 
 @app.get("/projects/{project_id}/tasks", response_model=List[schemas.TaskOut])
-def list_tasks(project_id: int, db: Session = Depends(get_db), current_user: models.User = Depends(auth.get_current_user)):
-    project = (
-        db.query(models.Project)
-        .filter(models.Project.id == project_id, models.Project.owner_id == current_user.id)
-        .first()
-    )
-    if not project:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Project not found")
-    return db.query(models.Task).filter(models.Task.project_id == project_id).all()
+def list_tasks(
+    project_id: int,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(auth.get_current_user),
+):
+    project = ensure_project_access(project_id, db, current_user)
+    return db.query(models.Task).filter(models.Task.project_id == project.id).all()
 
 
 @app.post("/tasks", response_model=schemas.TaskOut, status_code=status.HTTP_201_CREATED)
-def create_task(task_in: schemas.TaskCreate, db: Session = Depends(get_db), current_user: models.User = Depends(auth.get_current_user)):
-    project = (
-        db.query(models.Project)
-        .filter(models.Project.id == task_in.project_id, models.Project.owner_id == current_user.id)
-        .first()
-    )
-    if not project:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Project not found")
+def create_task(
+    task_in: schemas.TaskCreate,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(auth.get_current_user),
+):
+    project = ensure_project_access(task_in.project_id, db, current_user)
     task = models.Task(
         title=task_in.title,
         description=task_in.description,
@@ -126,15 +235,17 @@ def create_task(task_in: schemas.TaskCreate, db: Session = Depends(get_db), curr
 
 
 @app.patch("/tasks/{task_id}", response_model=schemas.TaskOut)
-def update_task(task_id: int, task_update: schemas.TaskUpdate, db: Session = Depends(get_db), current_user: models.User = Depends(auth.get_current_user)):
-    task = (
-        db.query(models.Task)
-        .join(models.Project)
-        .filter(models.Task.id == task_id, models.Project.owner_id == current_user.id)
-        .first()
-    )
+def update_task(
+    task_id: int,
+    task_update: schemas.TaskUpdate,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(auth.get_current_user),
+):
+    task = db.query(models.Task).filter(models.Task.id == task_id).first()
     if not task:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Task not found")
+    if not user_can_access_project(task.project, current_user):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not allowed to modify this task")
     for field, value in task_update.dict(exclude_unset=True).items():
         setattr(task, field, value)
     db.commit()
@@ -143,29 +254,31 @@ def update_task(task_id: int, task_update: schemas.TaskUpdate, db: Session = Dep
 
 
 @app.delete("/tasks/{task_id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_task(task_id: int, db: Session = Depends(get_db), current_user: models.User = Depends(auth.get_current_user)):
-    task = (
-        db.query(models.Task)
-        .join(models.Project)
-        .filter(models.Task.id == task_id, models.Project.owner_id == current_user.id)
-        .first()
-    )
+def delete_task(
+    task_id: int,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(auth.get_current_user),
+):
+    task = db.query(models.Task).filter(models.Task.id == task_id).first()
     if not task:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Task not found")
+    if not user_can_access_project(task.project, current_user):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not allowed to modify this task")
     db.delete(task)
     db.commit()
 
 
 @app.get("/tasks/{task_id}/comments", response_model=List[schemas.CommentOut])
-def list_comments(task_id: int, db: Session = Depends(get_db), current_user: models.User = Depends(auth.get_current_user)):
-    task = (
-        db.query(models.Task)
-        .join(models.Project)
-        .filter(models.Task.id == task_id, models.Project.owner_id == current_user.id)
-        .first()
-    )
+def list_comments(
+    task_id: int,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(auth.get_current_user),
+):
+    task = db.query(models.Task).filter(models.Task.id == task_id).first()
     if not task:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Task not found")
+    if not user_can_access_project(task.project, current_user):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not allowed to access comments for this task")
     comments = (
         db.query(models.Comment)
         .filter(models.Comment.task_id == task_id, models.Comment.parent_id.is_(None))
@@ -175,15 +288,16 @@ def list_comments(task_id: int, db: Session = Depends(get_db), current_user: mod
 
 
 @app.post("/comments", response_model=schemas.CommentOut, status_code=status.HTTP_201_CREATED)
-def create_comment(comment_in: schemas.CommentCreate, db: Session = Depends(get_db), current_user: models.User = Depends(auth.get_current_user)):
-    task = (
-        db.query(models.Task)
-        .join(models.Project)
-        .filter(models.Task.id == comment_in.task_id, models.Project.owner_id == current_user.id)
-        .first()
-    )
+def create_comment(
+    comment_in: schemas.CommentCreate,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(auth.get_current_user),
+):
+    task = db.query(models.Task).filter(models.Task.id == comment_in.task_id).first()
     if not task:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Task not found")
+    if not user_can_access_project(task.project, current_user):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not allowed to comment on this task")
     parent = None
     if comment_in.parent_id:
         parent = db.query(models.Comment).filter(models.Comment.id == comment_in.parent_id).first()
@@ -200,13 +314,21 @@ def create_comment(comment_in: schemas.CommentCreate, db: Session = Depends(get_
     db.refresh(comment)
 
     mentioned_users = parse_mentions(comment.content, db)
+    task = comment.task
+    project = task.project if task else None
     for user in mentioned_users:
         if user.id == current_user.id:
             continue
+        location_bits = []
+        if project:
+            location_bits.append(f"project '{project.name}'")
+        if task:
+            location_bits.append(f"task '{task.title}'")
+        location = " in " + ", ".join(location_bits) if location_bits else ""
         notification = models.Notification(
             recipient_id=user.id,
             comment_id=comment.id,
-            message=f"You were mentioned in a comment by {current_user.username}",
+            message=f"{current_user.username} mentioned you{location}",
         )
         db.add(notification)
     db.commit()
@@ -227,6 +349,8 @@ def solve_comment(comment_id: int, db: Session = Depends(get_db), current_user: 
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Comment not found")
 
     project: models.Project = comment.task.project
+    if not user_can_access_project(project, current_user):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not allowed to update this comment")
     is_owner = project.owner_id == current_user.id
     is_author = comment.author_id == current_user.id
     mentioned_user_ids = {n.recipient_id for n in comment.notifications}

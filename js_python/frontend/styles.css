@@ -345,6 +345,108 @@ textarea {
   background: rgba(244, 114, 182, 0.3);
 }
 
+.project-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.visibility-badge {
+  align-self: flex-start;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  border-radius: 999px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.visibility-badge.visibility-all {
+  background: rgba(16, 185, 129, 0.18);
+  color: #047857;
+}
+
+.visibility-badge.visibility-private {
+  background: rgba(244, 114, 182, 0.2);
+  color: #9d174d;
+}
+
+.visibility-badge.visibility-selected {
+  background: rgba(124, 58, 237, 0.18);
+  color: var(--primary-strong);
+}
+
+.shared-users {
+  font-size: 0.9rem;
+  color: var(--text-muted);
+}
+
+.access-form {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px;
+  border-radius: var(--radius-sm);
+  background: rgba(255, 255, 255, 0.8);
+  border: 1px solid rgba(124, 58, 237, 0.15);
+}
+
+.access-form button {
+  align-self: flex-start;
+  padding: 8px 16px;
+  border-radius: var(--radius-sm);
+  border: none;
+  background: var(--primary);
+  color: white;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s ease, transform 0.2s ease;
+}
+
+.access-form button:hover {
+  background: var(--primary-strong);
+  transform: translateY(-1px);
+}
+
+.share-checkboxes {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+}
+
+.share-option {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border-radius: var(--radius-sm);
+  background: rgba(124, 58, 237, 0.08);
+  color: var(--text-main);
+  cursor: pointer;
+}
+
+.share-option input {
+  width: auto;
+  margin: 0;
+  cursor: pointer;
+}
+
+.help-text {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  margin: 0;
+}
+
+.empty-note {
+  margin: 0;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  font-style: italic;
+}
+
 .tasks {
   display: flex;
   flex-direction: column;

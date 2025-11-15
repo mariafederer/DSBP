@@ -22,11 +22,18 @@ async function handleRegister(event) {
   event.preventDefault();
   clearError();
 
+  if (!registerForm) {
+    return;
+  }
+
   const formData = new FormData(registerForm);
+  const usernameValue = formData.get("username");
+  const emailValue = formData.get("email");
+  const passwordValue = formData.get("password");
   const payload = {
-    username: formData.get("username")?.toString().trim(),
-    email: formData.get("email")?.toString().trim(),
-    password: formData.get("password"),
+    username: usernameValue ? String(usernameValue).trim() : "",
+    email: emailValue ? String(emailValue).trim() : "",
+    password: passwordValue ? String(passwordValue) : "",
   };
 
   if (!payload.username || !payload.email || !payload.password) {
@@ -75,4 +82,6 @@ async function handleRegister(event) {
   }
 }
 
-registerForm?.addEventListener("submit", handleRegister);
+if (registerForm) {
+  registerForm.addEventListener("submit", handleRegister);
+}
