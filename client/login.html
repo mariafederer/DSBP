@@ -144,6 +144,22 @@
             display: block;
         }
 
+        .debug-message {
+            background: #fff3cd;
+            color: #856404;
+            padding: 12px 16px;
+            border-radius: 8px;
+            margin-bottom: 16px;
+            font-size: 13px;
+            font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, Courier, monospace;
+            white-space: pre-wrap;
+            display: none;
+        }
+
+        .debug-message.show {
+            display: block;
+        }
+
         .register-link {
             text-align: center;
             margin-top: 24px;
@@ -184,6 +200,7 @@
         <p class="subtitle">登录您的 DSBP 账户</p>
 
         <div class="error-message-general" id="generalError"></div>
+        <div class="debug-message" id="debugInfo"></div>
 
         <form id="loginForm">
             <div class="form-group">
@@ -228,6 +245,38 @@
         const form = document.getElementById('loginForm');
         const submitBtn = document.getElementById('submitBtn');
         const generalError = document.getElementById('generalError');
+        const debugInfo = document.getElementById('debugInfo');
+
+        function logDebug(event, detail) {
+            console.debug('[DSBP][Login]', event, detail);
+
+            if (!debugInfo) {
+                return;
+            }
+
+            const timestamp = new Date().toISOString();
+            let detailMessage = '';
+
+            if (detail) {
+                if (detail instanceof Error) {
+                    detailMessage = detail.message;
+                } else if (typeof detail === 'string') {
+                    detailMessage = detail;
+                } else {
+                    try {
+                        detailMessage = JSON.stringify(detail);
+                    } catch (serializationError) {
+                        detailMessage = String(detail);
+                    }
+                }
+            }
+
+            const entry = `[${timestamp}] ${event}${detailMessage ? `: ${detailMessage}` : ''}`;
+            debugInfo.textContent = debugInfo.textContent
+                ? `${debugInfo.textContent}\n${entry}`
+                : entry;
+            debugInfo.classList.add('show');
+        }
 
         // 清除错误状态
         function clearErrors() {
@@ -239,6 +288,10 @@
                 el.classList.remove('error');
             });
             generalError.classList.remove('show');
+            if (debugInfo) {
+                debugInfo.classList.remove('show');
+                debugInfo.textContent = '';
+            }
         }
 
         // 显示错误
@@ -282,6 +335,7 @@
             // 禁用提交按钮
             submitBtn.disabled = true;
             submitBtn.innerHTML = '<span class="loading"></span>登录中...';
+            logDebug('Submitting login request', { email: formData.email });
 
             try {
                 const response = await fetch(`${API_BASE_URL}/api/auth/login`, {
@@ -292,7 +346,15 @@
                     body: JSON.stringify(formData),
                 });
 
-                const data = await response.json();
+                logDebug('Received response', { status: response.status });
+
+                let data;
+                try {
+                    data = await response.json();
+                } catch (parseError) {
+                    logDebug('Failed to parse response JSON', parseError);
+                    throw parseError;
+                }
 
                 if (!response.ok) {
                     // 处理错误响应
@@ -308,19 +370,29 @@
                 if (data.access_token) {
                     // 保存token到localStorage
                     localStorage.setItem('dsbp_access_token', data.access_token);
-                    
+
                     // 跳转到主页
+                    logDebug('Login successful, redirecting', 'index.html');
                     window.location.href = 'index.html';
                 }
 
             } catch (error) {
+                logDebug('Login request failed', error);
                 console.error('登录错误:', error);
-                if (!error.message.includes('登录成功')) {
-                    showGeneralError(error.message || '登录失败，请稍后重试');
+
+                const fallbackMessage = '登录失败，请稍后重试';
+
+                if (error instanceof TypeError && error.message === 'Failed to fetch') {
+                    showGeneralError('无法连接服务器，请检查您的网络或稍后重试');
+                } else if (!error.message || error.message.includes('登录成功')) {
+                    showGeneralError(fallbackMessage);
+                } else {
+                    showGeneralError(error.message);
                 }
             } finally {
                 submitBtn.disabled = false;
                 submitBtn.textContent = '登录';
+                logDebug('Login request finished', { buttonEnabled: true });
             }
         });
 
@@ -335,6 +407,10 @@
                     }
                 }
                 generalError.classList.remove('show');
+                if (debugInfo) {
+                    debugInfo.classList.remove('show');
+                    debugInfo.textContent = '';
+                }
             });
         });
     </script>

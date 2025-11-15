@@ -130,6 +130,36 @@
             transform: none;
         }
 
+        .error-message-general {
+            background: #f8d7da;
+            color: #721c24;
+            padding: 12px 16px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            display: none;
+            font-size: 14px;
+        }
+
+        .error-message-general.show {
+            display: block;
+        }
+
+        .debug-message {
+            background: #fff3cd;
+            color: #856404;
+            padding: 12px 16px;
+            border-radius: 8px;
+            margin-bottom: 16px;
+            font-size: 13px;
+            font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, Courier, monospace;
+            white-space: pre-wrap;
+            display: none;
+        }
+
+        .debug-message.show {
+            display: block;
+        }
+
         .success-message {
             background: #d4edda;
             color: #155724;
@@ -184,6 +214,9 @@
         <p class="subtitle">注册新账户以开始使用 DSBP</p>
 
         <div class="success-message" id="successMessage"></div>
+
+        <div class="error-message-general" id="generalError"></div>
+        <div class="debug-message" id="debugInfo"></div>
 
         <form id="registerForm">
             <div class="form-group">
@@ -253,6 +286,39 @@
         const form = document.getElementById('registerForm');
         const submitBtn = document.getElementById('submitBtn');
         const successMessage = document.getElementById('successMessage');
+        const generalError = document.getElementById('generalError');
+        const debugInfo = document.getElementById('debugInfo');
+
+        function logDebug(event, detail) {
+            console.debug('[DSBP][Register]', event, detail);
+
+            if (!debugInfo) {
+                return;
+            }
+
+            const timestamp = new Date().toISOString();
+            let detailMessage = '';
+
+            if (detail) {
+                if (detail instanceof Error) {
+                    detailMessage = detail.message;
+                } else if (typeof detail === 'string') {
+                    detailMessage = detail;
+                } else {
+                    try {
+                        detailMessage = JSON.stringify(detail);
+                    } catch (serializationError) {
+                        detailMessage = String(detail);
+                    }
+                }
+            }
+
+            const entry = `[${timestamp}] ${event}${detailMessage ? `: ${detailMessage}` : ''}`;
+            debugInfo.textContent = debugInfo.textContent
+                ? `${debugInfo.textContent}\n${entry}`
+                : entry;
+            debugInfo.classList.add('show');
+        }
 
         // 清除错误状态
         function clearErrors() {
@@ -263,6 +329,11 @@
             document.querySelectorAll('input').forEach(el => {
                 el.classList.remove('error');
             });
+            generalError.classList.remove('show');
+            if (debugInfo) {
+                debugInfo.classList.remove('show');
+                debugInfo.textContent = '';
+            }
         }
 
         // 显示错误
@@ -283,6 +354,12 @@
             setTimeout(() => {
                 successMessage.classList.remove('show');
             }, 5000);
+        }
+
+        // 显示一般错误
+        function showGeneralError(message) {
+            generalError.textContent = message;
+            generalError.classList.add('show');
         }
 
         // 表单提交
@@ -316,6 +393,7 @@
             // 禁用提交按钮
             submitBtn.disabled = true;
             submitBtn.innerHTML = '<span class="loading"></span>注册中...';
+            logDebug('Submitting registration request', { email: formData.email, username: formData.username });
 
             try {
                 const response = await fetch(`${API_BASE_URL}/api/auth/register`, {
@@ -326,7 +404,15 @@
                     body: JSON.stringify(formData),
                 });
 
-                const data = await response.json();
+                logDebug('Received response', { status: response.status });
+
+                let data;
+                try {
+                    data = await response.json();
+                } catch (parseError) {
+                    logDebug('Failed to parse response JSON', parseError);
+                    throw parseError;
+                }
 
                 if (!response.ok) {
                     // 处理错误响应
@@ -347,6 +433,7 @@
                                 showError(field, err.msg);
                             });
                         }
+                        logDebug('Registration validation error', data.detail);
                     }
                     throw new Error(data.detail || '注册失败');
                 }
@@ -355,23 +442,33 @@
                 if (data.access_token) {
                     // 保存token到localStorage
                     localStorage.setItem('dsbp_access_token', data.access_token);
-                    
+
                     showSuccess(`注册成功！欢迎，${data.user.username}！`);
-                    
+                    logDebug('Registration successful', { userId: data.user.id, username: data.user.username });
+
                     // 3秒后跳转到主页或登录页
                     setTimeout(() => {
+                        logDebug('Redirecting after registration', 'index.html');
                         window.location.href = 'index.html';
                     }, 2000);
                 }
 
             } catch (error) {
+                logDebug('Registration request failed', error);
                 console.error('注册错误:', error);
-                if (!error.message.includes('注册成功')) {
-                    showError('email', error.message || '注册失败，请稍后重试');
+                const fallbackMessage = '注册失败，请稍后重试';
+
+                if (error instanceof TypeError && error.message === 'Failed to fetch') {
+                    showGeneralError('无法连接服务器，请检查您的网络或稍后重试');
+                } else if (!error.message || error.message.includes('注册成功')) {
+                    showGeneralError(fallbackMessage);
+                } else {
+                    showGeneralError(error.message);
                 }
             } finally {
                 submitBtn.disabled = false;
                 submitBtn.textContent = '注册账户';
+                logDebug('Registration request finished', { buttonEnabled: true });
             }
         });
 
@@ -384,6 +481,11 @@
                     if (errorEl) {
                         errorEl.classList.remove('show');
                     }
+                }
+                generalError.classList.remove('show');
+                if (debugInfo) {
+                    debugInfo.classList.remove('show');
+                    debugInfo.textContent = '';
                 }
             });
         });
