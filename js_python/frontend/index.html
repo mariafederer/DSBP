@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Kanban Web App</title>
+    <link rel="stylesheet" href="/static/styles.css" />
+  </head>
+  <body>
+    <div class="page-shell">
+      <header class="top-bar">
+        <div class="brand">
+          <div class="logo">K</div>
+          <div>
+            <h1>Orchid Kanban</h1>
+            <p class="subtitle">Organise projects with calm efficiency</p>
+          </div>
+        </div>
+        <div id="user-info" class="user-info hidden">
+          <span class="user-pill">Signed in as <strong id="current-username"></strong></span>
+          <button id="logout-btn" class="ghost-button">Logout</button>
+        </div>
+      </header>
+
+      <main id="app-section" class="app-layout hidden">
+        <aside class="sidebar">
+          <div class="card">
+            <h2>Create Project</h2>
+            <p class="card-copy">Spin up a new workspace for your ideas.</p>
+            <form id="project-form" class="stacked">
+              <label for="project-name">Project name</label>
+              <input type="text" id="project-name" placeholder="e.g. Launch plan" required />
+              <label for="project-description">Description</label>
+              <textarea id="project-description" placeholder="Optional summary"></textarea>
+              <button type="submit" class="primary-button">Create project</button>
+            </form>
+          </div>
+
+          <div class="card" id="notifications-card">
+            <div class="card-header">
+              <h2>Notifications</h2>
+              <span class="badge hidden" id="notification-count">0</span>
+            </div>
+            <ul id="notifications-list" class="notifications"></ul>
+          </div>
+        </aside>
+
+        <section class="board">
+          <div class="board-header">
+            <h2>Your projects</h2>
+            <p>Keep track of every milestone, comment, and mention.</p>
+          </div>
+          <div id="projects-container" class="projects-grid"></div>
+        </section>
+      </main>
+    </div>
+
+    <template id="task-template">
+      <div class="task">
+        <h4 class="task-title"></h4>
+        <p class="task-description"></p>
+        <select class="task-status">
+          <option value="todo">To Do</option>
+          <option value="in_progress">In Progress</option>
+          <option value="done">Done</option>
+        </select>
+        <button class="delete-task">Delete</button>
+        <div class="comments">
+          <h5>Comments</h5>
+          <div class="comment-list"></div>
+          <form class="comment-form">
+            <textarea class="comment-content" placeholder="Add a comment. Use @username to mention." required></textarea>
+            <button type="submit">Comment</button>
+          </form>
+        </div>
+      </div>
+    </template>
+
+    <script src="/static/app.js"></script>
+  </body>
+</html>
