@@ -506,6 +506,11 @@
                 } finally {
                     setLoading(false);
                 }
+                generalError.classList.remove('show');
+                if (debugInfo) {
+                    debugInfo.classList.remove('show');
+                    debugInfo.textContent = '';
+                }
             });
         })();
     </script>
