@@ -1,7 +1,7 @@
 """
 User Model
 """
-from sqlalchemy import Column, BigInteger, String, Boolean, DateTime, Enum as SQLEnum
+from sqlalchemy import Column, Integer, String, Boolean, DateTime, Enum as SQLEnum
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 import enum
@@ -21,7 +21,7 @@ class LicenseType(str, enum.Enum):
 class User(Base):
     __tablename__ = "users"
     
-    id = Column(BigInteger, primary_key=True, index=True)
+    id = Column(Integer, primary_key=True, index=True, autoincrement=True)
     email = Column(String(255), unique=True, index=True, nullable=False)
     username = Column(String(100), unique=True, index=True, nullable=False)
     password_hash = Column(String(255), nullable=False)
@@ -38,4 +38,8 @@ class User(Base):
     owned_projects = relationship("Project", back_populates="owner", foreign_keys="Project.owner_id")
     project_memberships = relationship("ProjectMember", back_populates="user", cascade="all, delete-orphan")
     sent_invitations = relationship("Invitation", back_populates="inviter", foreign_keys="Invitation.inviter_id")
+    comments = relationship("TaskComment", back_populates="author", cascade="all, delete-orphan", foreign_keys="TaskComment.author_id")
+    resolved_comments = relationship("TaskComment", back_populates="resolved_by", foreign_keys="TaskComment.resolved_by_id")
+    comment_mentions = relationship("CommentMention", back_populates="mentioned_user", cascade="all, delete-orphan")
+    notifications = relationship("Notification", back_populates="user", cascade="all, delete-orphan")
 

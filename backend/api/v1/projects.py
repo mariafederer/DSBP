@@ -2,11 +2,11 @@
 Project endpoints
 """
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, selectinload
 from typing import List
 from backend.database import get_db
 from backend.models import Project, ProjectMember, User
-from backend.schemas import ProjectCreate, ProjectResponse, ProjectUpdate
+from backend.schemas import ProjectCreate, ProjectResponse, ProjectUpdate, ProjectMemberResponse
 from backend.dependencies import get_current_user
 
 router = APIRouter()
@@ -155,6 +155,40 @@ async def delete_project(
     
     db.delete(project)
     db.commit()
-    
+
     return None
+
+
+@router.get("/{project_id}/members", response_model=List[ProjectMemberResponse])
+async def list_project_members(
+    project_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Return project members with their roles."""
+    project = db.query(Project).filter(Project.id == project_id).first()
+
+    if not project:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Project not found",
+        )
+
+    is_owner = project.owner_id == current_user.id
+    is_member = db.query(ProjectMember).filter(
+        ProjectMember.project_id == project_id,
+        ProjectMember.user_id == current_user.id,
+    ).first() is not None
+
+    if not is_owner and not is_member:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You don't have access to this project",
+        )
+
+    members = db.query(ProjectMember).options(
+        selectinload(ProjectMember.user)
+    ).filter(ProjectMember.project_id == project_id).order_by(ProjectMember.created_at.asc()).all()
+
+    return [ProjectMemberResponse.from_orm(member) for member in members]
 
