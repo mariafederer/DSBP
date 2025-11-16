@@ -1,7 +1,7 @@
 import re
 from datetime import timedelta
 from pathlib import Path
-from typing import Iterable, List, Optional
+from typing import Dict, Iterable, List, Optional, Set
 
 from fastapi import Depends, FastAPI, HTTPException, status
 from fastapi.middleware.cors import CORSMiddleware
@@ -55,6 +55,23 @@ def ensure_project_access(project_id: int, db: Session, user: models.User) -> mo
     if not user_can_access_project(project, user):
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not allowed to access this project")
     return project
+
+
+def accessible_projects_filter(user: models.User):
+    return or_(
+        models.Project.owner_id == user.id,
+        models.Project.visibility == "all",
+        models.Project.shared_users.any(models.User.id == user.id),
+    )
+
+
+def ensure_task_access(task_id: int, db: Session, user: models.User) -> models.Task:
+    task = db.query(models.Task).filter(models.Task.id == task_id).first()
+    if not task:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Task not found")
+    if not user_can_access_project(task.project, user):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not allowed to access this task")
+    return task
 
 
 def apply_project_visibility(
@@ -132,13 +149,7 @@ def list_users(db: Session = Depends(get_db), current_user: models.User = Depend
 def list_projects(db: Session = Depends(get_db), current_user: models.User = Depends(auth.get_current_user)):
     projects = (
         db.query(models.Project)
-        .filter(
-            or_(
-                models.Project.owner_id == current_user.id,
-                models.Project.visibility == "all",
-                models.Project.shared_users.any(models.User.id == current_user.id),
-            )
-        )
+        .filter(accessible_projects_filter(current_user))
         .distinct()
         .order_by(models.Project.created_at.desc())
         .all()
@@ -214,6 +225,22 @@ def list_tasks(
     return db.query(models.Task).filter(models.Task.project_id == project.id).all()
 
 
+@app.get("/tasks", response_model=List[schemas.TaskOut])
+def list_all_accessible_tasks(
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(auth.get_current_user),
+):
+    tasks = (
+        db.query(models.Task)
+        .join(models.Project)
+        .filter(accessible_projects_filter(current_user))
+        .distinct()
+        .order_by(models.Task.created_at.desc())
+        .all()
+    )
+    return tasks
+
+
 @app.post("/tasks", response_model=schemas.TaskOut, status_code=status.HTTP_201_CREATED)
 def create_task(
     task_in: schemas.TaskCreate,
@@ -248,11 +275,7 @@ def update_task(
     db: Session = Depends(get_db),
     current_user: models.User = Depends(auth.get_current_user),
 ):
-    task = db.query(models.Task).filter(models.Task.id == task_id).first()
-    if not task:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Task not found")
-    if not user_can_access_project(task.project, current_user):
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not allowed to modify this task")
+    task = ensure_task_access(task_id, db, current_user)
     
     update_data = task_update.dict(exclude_unset=True)
     assignee_ids = update_data.pop("assignee_ids", None)
@@ -276,13 +299,213 @@ def delete_task(
     db: Session = Depends(get_db),
     current_user: models.User = Depends(auth.get_current_user),
 ):
-    task = db.query(models.Task).filter(models.Task.id == task_id).first()
-    if not task:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Task not found")
-    if not user_can_access_project(task.project, current_user):
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not allowed to modify this task")
+    task = ensure_task_access(task_id, db, current_user)
     db.delete(task)
     db.commit()
+
+
+def _dependency_summary(task: models.Task) -> schemas.TaskSummary:
+    project_name = task.project.name if task.project else "Unknown"
+    return schemas.TaskSummary(
+        id=task.id,
+        title=task.title,
+        project_id=task.project_id,
+        project_name=project_name,
+    )
+
+
+def _build_dependency_map(tasks: List[models.Task], dependencies: List[models.TaskDependency]):
+    summaries: Dict[int, schemas.TaskSummary] = {task.id: _dependency_summary(task) for task in tasks}
+    indegree: Dict[int, int] = {task.id: 0 for task in tasks}
+    outdegree: Dict[int, int] = {task.id: 0 for task in tasks}
+    adjacency: Dict[int, List[int]] = {task.id: [] for task in tasks}
+    reverse_adj: Dict[int, List[int]] = {task.id: [] for task in tasks}
+    edges: List[schemas.DependencyEdgeOut] = []
+
+    for dep in dependencies:
+        if dep.depends_on_task_id not in summaries or dep.dependent_task_id not in summaries:
+            continue
+        # Prevent adding duplicate edges if data is dirty, though DB constraint should handle this
+        if dep.dependent_task_id not in adjacency[dep.depends_on_task_id]:
+            adjacency[dep.depends_on_task_id].append(dep.dependent_task_id)
+            reverse_adj[dep.dependent_task_id].append(dep.depends_on_task_id)
+            outdegree[dep.depends_on_task_id] += 1
+            indegree[dep.dependent_task_id] += 1
+            
+        edges.append(
+            schemas.DependencyEdgeOut(
+                id=dep.id,
+                depends_on=summaries[dep.depends_on_task_id],
+                dependent=summaries[dep.dependent_task_id],
+            )
+        )
+
+    # --- START: FIXED CHAIN-FINDING LOGIC ---
+    
+    chains: List[schemas.DependencyChainOut] = []
+    visited_nodes: Set[int] = set()  # Tracks nodes *already part of a chain*
+
+    for task in tasks:
+        task_id = task.id
+        if task_id in visited_nodes:
+            continue  # This node is already part of a chain we found
+
+        # A "chain head" is a node that is NOT a "middle" link.
+        # A "middle" link is: indegree == 1 AND its predecessor also has outdegree == 1
+        is_middle_link = False
+        if indegree.get(task_id, 0) == 1:
+            predecessor_id = reverse_adj[task_id][0]
+            if outdegree.get(predecessor_id, 0) == 1:
+                is_middle_link = True
+
+        # We only start tracing from a "true" head, not a middle link.
+        # We also must have an outdegree of 1 to start a chain.
+        if not is_middle_link and outdegree.get(task_id, 0) == 1:
+            chain_ids = [task_id]
+            visited_nodes.add(task_id)
+            current = task_id
+
+            # Start tracing the chain
+            while outdegree.get(current, 0) == 1:
+                nxt = adjacency[current][0]
+                
+                # The chain continues *only if* the next node is also a linear link
+                if indegree.get(nxt, 0) == 1:
+                    if nxt in chain_ids:
+                         break # Cycle detected, though your create endpoint should prevent this
+                    chain_ids.append(nxt)
+                    visited_nodes.add(nxt)
+                    current = nxt
+                else:
+                    # Next node is a convergence (indegree > 1) or end (indegree = 0, impossible)
+                    # so the linear chain ends here.
+                    break 
+
+            if len(chain_ids) > 1:
+                chains.append(
+                    schemas.DependencyChainOut(tasks=[summaries[node_id] for node_id in chain_ids])
+                )
+    
+    # --- END: FIXED CHAIN-FINDING LOGIC ---
+
+    # Your convergence logic was already correct and requires no changes.
+    convergences: List[schemas.DependencyConvergenceOut] = []
+    for task in tasks:
+        task_id = task.id
+        sources = reverse_adj.get(task_id, [])
+        if len(sources) > 1:
+            convergences.append(
+                schemas.DependencyConvergenceOut(
+                    target=summaries[task_id],
+                    sources=[summaries[source_id] for source_id in sources],
+                )
+            )
+
+    return schemas.DependencyMapOut(
+        tasks=list(summaries.values()),
+        edges=edges,
+        chains=chains,
+        convergences=convergences,
+    )
+
+
+def _creates_dependency_cycle(
+    db: Session, depends_on_task_id: int, dependent_task_id: int
+) -> bool:
+    stack = [dependent_task_id]
+    visited: Set[int] = set()
+    while stack:
+        current = stack.pop()
+        if current == depends_on_task_id:
+            return True
+        if current in visited:
+            continue
+        visited.add(current)
+        next_tasks = (
+            db.query(models.TaskDependency.dependent_task_id)
+            .filter(models.TaskDependency.depends_on_task_id == current)
+            .all()
+        )
+        stack.extend(dep_id for (dep_id,) in next_tasks)
+    return False
+
+
+@app.post("/task-dependencies", response_model=schemas.TaskDependencyOut, status_code=status.HTTP_201_CREATED)
+def create_task_dependency(
+    dependency_in: schemas.TaskDependencyCreate,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(auth.get_current_user),
+):
+    dependent_task = ensure_task_access(dependency_in.dependent_task_id, db, current_user)
+    depends_on_task = ensure_task_access(dependency_in.depends_on_task_id, db, current_user)
+
+    if dependent_task.id == depends_on_task.id:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Task cannot depend on itself")
+
+    existing = (
+        db.query(models.TaskDependency)
+        .filter(
+            models.TaskDependency.dependent_task_id == dependent_task.id,
+            models.TaskDependency.depends_on_task_id == depends_on_task.id,
+        )
+        .first()
+    )
+    if existing:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Dependency already exists")
+
+    if _creates_dependency_cycle(db, depends_on_task.id, dependent_task.id):
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Dependency would create a cycle")
+
+    dependency = models.TaskDependency(
+        dependent_task_id=dependent_task.id,
+        depends_on_task_id=depends_on_task.id,
+    )
+    db.add(dependency)
+    db.commit()
+    db.refresh(dependency)
+    return dependency
+
+
+@app.delete("/task-dependencies/{dependency_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_task_dependency(
+    dependency_id: int,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(auth.get_current_user),
+):
+    dependency = db.query(models.TaskDependency).filter(models.TaskDependency.id == dependency_id).first()
+    if not dependency:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Dependency not found")
+
+    ensure_task_access(dependency.dependent_task_id, db, current_user)
+    ensure_task_access(dependency.depends_on_task_id, db, current_user)
+
+    db.delete(dependency)
+    db.commit()
+
+
+@app.get("/dependency-map", response_model=schemas.DependencyMapOut)
+def dependency_map(
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(auth.get_current_user),
+):
+    tasks = (
+        db.query(models.Task)
+        .join(models.Project)
+        .filter(accessible_projects_filter(current_user))
+        .distinct()
+        .all()
+    )
+    if not tasks:
+        return schemas.DependencyMapOut(tasks=[], edges=[], chains=[], convergences=[])
+
+    dependencies = (
+        db.query(models.TaskDependency)
+        .join(models.Task, models.TaskDependency.dependent_task)
+        .join(models.Project)
+        .filter(accessible_projects_filter(current_user))
+        .all()
+    )
+    return _build_dependency_map(tasks, dependencies)
 
 
 @app.get("/tasks/{task_id}/comments", response_model=List[schemas.CommentOut])

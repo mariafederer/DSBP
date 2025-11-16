@@ -95,6 +95,38 @@ class Task(Base):
         back_populates="assigned_tasks",
     )
     comments = relationship("Comment", back_populates="task", cascade="all, delete-orphan")
+    dependencies = relationship(
+        "TaskDependency",
+        foreign_keys="TaskDependency.dependent_task_id",
+        back_populates="dependent_task",
+        cascade="all, delete-orphan",
+    )
+    dependents = relationship(
+        "TaskDependency",
+        foreign_keys="TaskDependency.depends_on_task_id",
+        back_populates="depends_on_task",
+        cascade="all, delete-orphan",
+    )
+
+
+class TaskDependency(Base):
+    __tablename__ = "task_dependencies"
+
+    id = Column(Integer, primary_key=True, index=True)
+    dependent_task_id = Column(Integer, ForeignKey("tasks.id", ondelete="CASCADE"), nullable=False)
+    depends_on_task_id = Column(Integer, ForeignKey("tasks.id", ondelete="CASCADE"), nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    dependent_task = relationship(
+        "Task",
+        foreign_keys=[dependent_task_id],
+        back_populates="dependencies",
+    )
+    depends_on_task = relationship(
+        "Task",
+        foreign_keys=[depends_on_task_id],
+        back_populates="dependents",
+    )
 
 
 class Comment(Base):

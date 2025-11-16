@@ -88,6 +88,54 @@ class TaskOut(TaskBase):
         orm_mode = True
 
 
+class TaskSummary(BaseModel):
+    id: int
+    title: str
+    project_id: int
+    project_name: str
+
+
+class TaskDependencyBase(BaseModel):
+    dependent_task_id: int
+    depends_on_task_id: int
+
+
+class TaskDependencyCreate(TaskDependencyBase):
+    pass
+
+
+class TaskDependencyOut(TaskDependencyBase):
+    id: int
+    dependent_task: TaskOut
+    depends_on_task: TaskOut
+    created_at: datetime
+
+    class Config:
+        orm_mode = True
+
+
+class DependencyEdgeOut(BaseModel):
+    id: int
+    dependent: TaskSummary
+    depends_on: TaskSummary
+
+
+class DependencyChainOut(BaseModel):
+    tasks: List[TaskSummary]
+
+
+class DependencyConvergenceOut(BaseModel):
+    target: TaskSummary
+    sources: List[TaskSummary]
+
+
+class DependencyMapOut(BaseModel):
+    tasks: List[TaskSummary]
+    edges: List[DependencyEdgeOut]
+    chains: List[DependencyChainOut]
+    convergences: List[DependencyConvergenceOut]
+
+
 class CommentCreate(BaseModel):
     task_id: int
     content: str

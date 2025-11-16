@@ -5,9 +5,10 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>DSBP - Digital Software Building Platform</title>
     <link rel="stylesheet" href="/static/styles.css" />
+    
+    <script type="text/javascript" src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"></script>
   </head>
   <body>
-    <!-- Header -->
     <header class="header">
       <div class="header-left">
         <div class="logo-container">
@@ -15,47 +16,37 @@
           <span class="logo-text">DSBP</span>
         </div>
         <div class="user-badge">
-          <span class="user-icon">M</span>
-          <span id="current-username" class="user-name">My Name</span>
+          <span class="user-icon" id="current-user-icon">?</span> 
+          <span id="current-username" class="user-name">Loading...</span>
         </div>
       </div>
       <button id="logout-btn" class="btn-logout">Logout</button>
     </header>
 
-    <!-- Main Layout -->
     <div class="main-layout">
-      <!-- Left Sidebar - Projects -->
       <aside class="sidebar-left">
         <div class="sidebar-search">
           <input type="text" id="project-search" placeholder="Search..." />
         </div>
         <div class="projects-section">
           <div class="section-header">
-            <button class="btn-expand">▼</button>
             <span>Projects</span>
             <button id="btn-add-project" class="btn-add">+</button>
           </div>
           <ul id="projects-list" class="projects-list">
-            <!-- Projects will be loaded here -->
-          </ul>
+            </ul>
         </div>
       </aside>
 
-      <!-- Main Content -->
       <main class="main-content">
-        <!-- Top Bar -->
         <div class="content-header">
           <nav class="tabs">
             <button class="tab active" data-tab="dashboard">Dashboard</button>
             <button class="tab" data-tab="taskboard">Task Board</button>
             <button class="tab" data-tab="dependency">Dependency Map</button>
-            <button class="tab" data-tab="chat">Chat</button>
+            <button class="tab" data-tab="notifications">Notifications</button>
           </nav>
           <div class="header-actions">
-            <button id="btn-select-user" class="btn-select-user">
-              <span class="icon-user">👤</span>
-              <span>Select User</span>
-            </button>
             <button id="btn-add-task" class="btn-add-task">
               <span>+</span>
               <span>Add Task</span>
@@ -63,7 +54,6 @@
           </div>
         </div>
 
-        <!-- Task Board -->
         <div id="taskboard-view" class="taskboard-view">
           <div class="board-column" data-status="new_task">
             <div class="column-header">
@@ -71,8 +61,7 @@
               <span class="task-count" data-status="new_task">0</span>
             </div>
             <div class="tasks-container" data-status="new_task">
-              <!-- Tasks will be loaded here -->
-            </div>
+              </div>
           </div>
           <div class="board-column" data-status="scheduled">
             <div class="column-header">
@@ -80,8 +69,7 @@
               <span class="task-count" data-status="scheduled">0</span>
             </div>
             <div class="tasks-container" data-status="scheduled">
-              <!-- Tasks will be loaded here -->
-            </div>
+              </div>
           </div>
           <div class="board-column" data-status="in_progress">
             <div class="column-header">
@@ -89,8 +77,7 @@
               <span class="task-count" data-status="in_progress">0</span>
             </div>
             <div class="tasks-container" data-status="in_progress">
-              <!-- Tasks will be loaded here -->
-            </div>
+              </div>
           </div>
           <div class="board-column" data-status="completed">
             <div class="column-header">
@@ -98,20 +85,114 @@
               <span class="task-count" data-status="completed">0</span>
             </div>
             <div class="tasks-container" data-status="completed">
-              <!-- Tasks will be loaded here -->
-            </div>
+              </div>
           </div>
         </div>
 
-        <!-- Dashboard View (hidden by default) -->
         <div id="dashboard-view" class="dashboard-view hidden">
-          <h2>Dashboard</h2>
-          <p>Welcome to DSBP Project Management System</p>
+          <div class="dashboard-grid">
+            <section class="dashboard-card">
+              <h2>Project Overview</h2>
+              <p id="project-overview-name" class="dashboard-title">Select a project</p>
+              <p id="project-overview-description" class="dashboard-description">
+                Choose a project from the sidebar to view its details.
+              </p>
+              <div class="project-meta">
+                <span id="project-overview-visibility">Visibility: --</span>
+                <span id="project-overview-owner">Owner: --</span>
+              </div>
+            </section>
+            <section class="dashboard-card">
+              <div class="card-header">
+                <h2>Project Visibility & Sharing</h2>
+                <p id="project-settings-message" class="dashboard-note">
+                  Select a project to edit its visibility.
+                </p>
+              </div>
+              <form id="form-project-settings" class="settings-form">
+                <div class="form-group">
+                  <label for="project-settings-name">Project Name</label>
+                  <input type="text" id="project-settings-name" />
+                </div>
+                <div class="form-group">
+                  <label for="project-settings-description">Description</label>
+                  <textarea id="project-settings-description" rows="3"></textarea>
+                </div>
+                <div class="form-group">
+                  <label for="project-settings-visibility">Visibility</label>
+                  <select id="project-settings-visibility">
+                    <option value="private">Private</option>
+                    <option value="selected">Selected users</option>
+                    <option value="all">All users</option>
+                  </select>
+                </div>
+                <div id="project-settings-users-wrapper" class="form-group hidden">
+                  <label>Shared users</label>
+                  <div id="project-settings-users" class="selected-users"></div>
+                  <button type="button" id="btn-project-settings-users" class="btn-secondary">
+                    Manage access
+                  </button>
+                </div>
+                <div class="form-actions">
+                  <button type="submit" class="btn-primary" id="btn-save-settings">Save changes</button>
+                </div>
+              </form>
+            </section>
+          </div>
+        </div>
+
+        <div id="dependency-view" class="dependency-view hidden">
+          <div class="dependency-header">
+            <div>
+              <h2>Dependency Map</h2>
+              <p class="dependency-subtitle">
+                Link tasks across projects and visualize the merged chains.
+              </p>
+            </div>
+            <p id="dependency-status-text" class="status-text"></p>
+          </div>
+
+          <div id="vis-graph-container"></div>
+
+          <form id="form-add-dependency" class="dependency-form">
+            <select id="dependency-dependent" required>
+              <option value="">Dependent task...</option>
+            </select>
+            <span class="dependency-arrow">depends on</span>
+            <select id="dependency-depends-on" required>
+              <option value="">Depends on...</option>
+            </select>
+            <button type="submit" class="btn-primary">Link tasks</button>
+          </form>
+          <div class="dependency-columns">
+            <section>
+              <h3>Linear chains</h3>
+              <div id="dependency-chains" class="dependency-cards"></div>
+            </section>
+            <section>
+              <h3>Converging dependencies</h3>
+              <div id="dependency-convergences" class="dependency-cards"></div>
+            </section>
+          </div>
+          <section class="dependency-edges-section">
+            <h3>Direct dependencies</h3>
+            <div id="dependency-edges" class="dependency-edges"></div>
+          </section>
+        </div>
+
+        <div id="notifications-view" class="notifications-view hidden">
+          <div class="notifications-header">
+            <div>
+              <h2>Notifications</h2>
+              <p>Mentions from project comments appear here.</p>
+            </div>
+            <button id="btn-refresh-notifications" class="btn-secondary">Refresh</button>
+          </div>
+          <ul id="notifications-list" class="notifications-list"></ul>
         </div>
       </main>
     </div>
 
-    <!-- Modal: Create Project -->
     <div id="modal-create-project" class="modal hidden">
       <div class="modal-content">
         <div class="modal-header">
@@ -120,19 +201,19 @@
         </div>
         <form id="form-create-project" class="modal-body">
           <div class="form-group">
-            <label for="project-name">Project Name</label>
-            <input type="text" id="project-name" name="name" required />
+            <label for="project-name-form">Project Name</label>
+            <input type="text" id="project-name-form" name="name" required />
           </div>
           <div class="form-group">
-            <label for="project-description">Description</label>
-            <textarea id="project-description" name="description" rows="3"></textarea>
+            <label for="project-description-form">Description</label>
+            <textarea id="project-description-form" name="description" rows="3"></textarea>
           </div>
           <div class="form-group">
             <label for="project-visibility">Visibility</label>
             <select id="project-visibility" name="visibility">
-              <option value="all">All users</option>
               <option value="private">Private</option>
               <option value="selected">Selected users</option>
+              <option value="all">All users</option>
             </select>
           </div>
           <div id="project-users-wrapper" class="form-group hidden">
@@ -150,7 +231,6 @@
       </div>
     </div>
 
-    <!-- Modal: User Selector -->
     <div id="modal-user-selector" class="modal hidden">
       <div class="modal-content">
         <div class="modal-header">
@@ -162,13 +242,15 @@
             <input type="text" id="user-search" placeholder="Search users..." />
           </div>
           <div class="user-list" id="user-list">
-            <!-- Users will be loaded here -->
-          </div>
+            </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn-secondary" id="btn-user-selector-cancel">Cancel</button>
+          <button type="button" class="btn-primary" id="btn-user-selector-apply">Apply</button>
         </div>
       </div>
     </div>
 
-    <!-- Side Panel: Task Details -->
     <div id="task-detail-panel" class="side-panel hidden">
       <div class="side-panel-header">
         <input type="text" id="task-title-input" class="task-title-edit" placeholder="Task title" />
@@ -198,8 +280,7 @@
           <label>Assignees</label>
           <div class="field-value">
             <div id="task-assignees" class="assignees-list">
-              <!-- Assignees will be shown here -->
-            </div>
+              </div>
             <button id="btn-add-assignee" class="btn-add-small">+ Add</button>
           </div>
         </div>
@@ -210,8 +291,7 @@
             <span id="comments-count" class="count-badge">0</span>
           </div>
           <div id="comments-list" class="comments-list">
-            <!-- Comments will be loaded here -->
-          </div>
+            </div>
           <form id="form-add-comment" class="comment-form">
             <input type="text" placeholder="Add Comment" id="comment-input" />
             <button type="submit" class="btn-comment-submit">💬 Add Comment</button>
@@ -221,7 +301,6 @@
       <button id="btn-close-panel" class="btn-close-panel">&times;</button>
     </div>
 
-    <!-- Modal: Add Task -->
     <div id="modal-add-task" class="modal hidden">
       <div class="modal-content">
         <div class="modal-header">
@@ -266,5 +345,6 @@
     </div>
 
     <script src="/static/app.js"></script>
+    
   </body>
 </html>
