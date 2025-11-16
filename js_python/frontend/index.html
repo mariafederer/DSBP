@@ -49,7 +49,7 @@
             <button class="tab active" data-tab="dashboard">Dashboard</button>
             <button class="tab" data-tab="taskboard">Task Board</button>
             <button class="tab" data-tab="dependency">Dependency Map</button>
-            <button class="tab" data-tab="chat">Chat</button>
+            <button class="tab" data-tab="notifications">Notifications</button>
           </nav>
           <div class="header-actions">
             <button id="btn-select-user" class="btn-select-user">
@@ -105,8 +105,104 @@
 
         <!-- Dashboard View (hidden by default) -->
         <div id="dashboard-view" class="dashboard-view hidden">
-          <h2>Dashboard</h2>
-          <p>Welcome to DSBP Project Management System</p>
+          <div class="dashboard-grid">
+            <section class="dashboard-card">
+              <h2>Project Overview</h2>
+              <p id="project-overview-name" class="dashboard-title">Select a project</p>
+              <p id="project-overview-description" class="dashboard-description">
+                Choose a project from the sidebar to view its details.
+              </p>
+              <div class="project-meta">
+                <span id="project-overview-visibility">Visibility: --</span>
+                <span id="project-overview-owner">Owner: --</span>
+              </div>
+            </section>
+            <section class="dashboard-card">
+              <div class="card-header">
+                <h2>Project Visibility & Sharing</h2>
+                <p id="project-settings-message" class="dashboard-note">
+                  Select a project to edit its visibility.
+                </p>
+              </div>
+              <form id="form-project-settings" class="settings-form">
+                <div class="form-group">
+                  <label for="project-settings-name">Project Name</label>
+                  <input type="text" id="project-settings-name" />
+                </div>
+                <div class="form-group">
+                  <label for="project-settings-description">Description</label>
+                  <textarea id="project-settings-description" rows="3"></textarea>
+                </div>
+                <div class="form-group">
+                  <label for="project-settings-visibility">Visibility</label>
+                  <select id="project-settings-visibility">
+                    <option value="all">All users</option>
+                    <option value="private">Private</option>
+                    <option value="selected">Selected users</option>
+                  </select>
+                </div>
+                <div id="project-settings-users-wrapper" class="form-group hidden">
+                  <label>Shared users</label>
+                  <button type="button" id="btn-project-settings-users" class="btn-secondary">
+                    Manage access
+                  </button>
+                  <div id="project-settings-users" class="selected-users"></div>
+                </div>
+                <div class="form-actions">
+                  <button type="submit" class="btn-primary">Save changes</button>
+                </div>
+              </form>
+            </section>
+          </div>
+        </div>
+
+        <!-- Dependency View -->
+        <div id="dependency-view" class="dependency-view hidden">
+          <div class="dependency-header">
+            <div>
+              <h2>Dependency Map</h2>
+              <p class="dependency-subtitle">
+                Link tasks across projects and visualize the merged chains.
+              </p>
+            </div>
+            <p id="dependency-status-text" class="status-text"></p>
+          </div>
+          <form id="form-add-dependency" class="dependency-form">
+            <select id="dependency-dependent" required>
+              <option value="">Dependent task...</option>
+            </select>
+            <span class="dependency-arrow">depends on</span>
+            <select id="dependency-depends-on" required>
+              <option value="">Depends on...</option>
+            </select>
+            <button type="submit" class="btn-primary">Link tasks</button>
+          </form>
+          <div class="dependency-columns">
+            <section>
+              <h3>Linear chains</h3>
+              <div id="dependency-chains" class="dependency-cards"></div>
+            </section>
+            <section>
+              <h3>Converging dependencies</h3>
+              <div id="dependency-convergences" class="dependency-cards"></div>
+            </section>
+          </div>
+          <section class="dependency-edges-section">
+            <h3>Direct dependencies</h3>
+            <div id="dependency-edges" class="dependency-edges"></div>
+          </section>
+        </div>
+
+        <!-- Notifications View -->
+        <div id="notifications-view" class="notifications-view hidden">
+          <div class="notifications-header">
+            <div>
+              <h2>Notifications</h2>
+              <p>Mentions from project comments appear here.</p>
+            </div>
+            <button id="btn-refresh-notifications" class="btn-secondary">Refresh</button>
+          </div>
+          <ul id="notifications-list" class="notifications-list"></ul>
         </div>
       </main>
     </div>
@@ -164,6 +260,10 @@
           <div class="user-list" id="user-list">
             <!-- Users will be loaded here -->
           </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn-secondary" id="btn-user-selector-cancel">Cancel</button>
+          <button type="button" class="btn-primary" id="btn-user-selector-apply">Apply</button>
         </div>
       </div>
     </div>
