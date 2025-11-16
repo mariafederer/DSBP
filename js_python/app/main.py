@@ -226,9 +226,16 @@ def create_task(
         description=task_in.description,
         status=task_in.status,
         project_id=project.id,
-        assignee_id=task_in.assignee_id,
+        due_date=task_in.due_date,
     )
     db.add(task)
+    db.flush()
+    
+    # Add assignees
+    if task_in.assignee_ids:
+        assignees = db.query(models.User).filter(models.User.id.in_(task_in.assignee_ids)).all()
+        task.assignees = assignees
+    
     db.commit()
     db.refresh(task)
     return task
@@ -246,8 +253,18 @@ def update_task(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Task not found")
     if not user_can_access_project(task.project, current_user):
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not allowed to modify this task")
-    for field, value in task_update.dict(exclude_unset=True).items():
+    
+    update_data = task_update.dict(exclude_unset=True)
+    assignee_ids = update_data.pop("assignee_ids", None)
+    
+    for field, value in update_data.items():
         setattr(task, field, value)
+    
+    # Update assignees if provided
+    if assignee_ids is not None:
+        assignees = db.query(models.User).filter(models.User.id.in_(assignee_ids)).all()
+        task.assignees = assignees
+    
     db.commit()
     db.refresh(task)
     return task

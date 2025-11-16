@@ -21,6 +21,13 @@ project_shared_users = Table(
     Column("user_id", ForeignKey("users.id", ondelete="CASCADE"), primary_key=True),
 )
 
+task_assignees = Table(
+    "task_assignees",
+    Base.metadata,
+    Column("task_id", ForeignKey("tasks.id", ondelete="CASCADE"), primary_key=True),
+    Column("user_id", ForeignKey("users.id", ondelete="CASCADE"), primary_key=True),
+)
+
 
 class User(Base):
     __tablename__ = "users"
@@ -32,7 +39,6 @@ class User(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
 
     projects = relationship("Project", back_populates="owner", cascade="all, delete-orphan")
-    tasks = relationship("Task", back_populates="assignee")
     comments = relationship("Comment", back_populates="author")
     notifications = relationship(
         "Notification",
@@ -44,6 +50,11 @@ class User(Base):
         "Project",
         secondary=project_shared_users,
         back_populates="shared_users",
+    )
+    assigned_tasks = relationship(
+        "Task",
+        secondary=task_assignees,
+        back_populates="assignees",
     )
 
 
@@ -72,13 +83,17 @@ class Task(Base):
     id = Column(Integer, primary_key=True, index=True)
     title = Column(String(150), nullable=False)
     description = Column(Text, default="")
-    status = Column(String(50), default="todo")
+    status = Column(String(50), default="new_task")
     project_id = Column(Integer, ForeignKey("projects.id", ondelete="CASCADE"), nullable=False)
-    assignee_id = Column(Integer, ForeignKey("users.id"))
+    due_date = Column(DateTime, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
 
     project = relationship("Project", back_populates="tasks")
-    assignee = relationship("User", back_populates="tasks")
+    assignees = relationship(
+        "User",
+        secondary=task_assignees,
+        back_populates="assigned_tasks",
+    )
     comments = relationship("Comment", back_populates="task", cascade="all, delete-orphan")
 
 

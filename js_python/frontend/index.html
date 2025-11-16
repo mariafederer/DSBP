@@ -3,88 +3,267 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Digital Software Building System</title>
+    <title>DSBP - Digital Software Building Platform</title>
     <link rel="stylesheet" href="/static/styles.css" />
   </head>
   <body>
-    <div class="page-shell">
-      <header class="top-bar">
-        <div class="brand">
-          <div class="logo">K</div>
-          <div>
-            <h1>Digital Software Building System</h1>
-            <p class="subtitle">Organise projects with calm efficiency</p>
+    <!-- Header -->
+    <header class="header">
+      <div class="header-left">
+        <div class="logo-container">
+          <div class="logo-icon">D</div>
+          <span class="logo-text">DSBP</span>
+        </div>
+        <div class="user-badge">
+          <span class="user-icon">M</span>
+          <span id="current-username" class="user-name">My Name</span>
+        </div>
+      </div>
+      <button id="logout-btn" class="btn-logout">Logout</button>
+    </header>
+
+    <!-- Main Layout -->
+    <div class="main-layout">
+      <!-- Left Sidebar - Projects -->
+      <aside class="sidebar-left">
+        <div class="sidebar-search">
+          <input type="text" id="project-search" placeholder="Search..." />
+        </div>
+        <div class="projects-section">
+          <div class="section-header">
+            <button class="btn-expand">▼</button>
+            <span>Projects</span>
+            <button id="btn-add-project" class="btn-add">+</button>
+          </div>
+          <ul id="projects-list" class="projects-list">
+            <!-- Projects will be loaded here -->
+          </ul>
+        </div>
+      </aside>
+
+      <!-- Main Content -->
+      <main class="main-content">
+        <!-- Top Bar -->
+        <div class="content-header">
+          <nav class="tabs">
+            <button class="tab active" data-tab="dashboard">Dashboard</button>
+            <button class="tab" data-tab="taskboard">Task Board</button>
+            <button class="tab" data-tab="dependency">Dependency Map</button>
+            <button class="tab" data-tab="chat">Chat</button>
+          </nav>
+          <div class="header-actions">
+            <button id="btn-select-user" class="btn-select-user">
+              <span class="icon-user">👤</span>
+              <span>Select User</span>
+            </button>
+            <button id="btn-add-task" class="btn-add-task">
+              <span>+</span>
+              <span>Add Task</span>
+            </button>
           </div>
         </div>
-        <div id="user-info" class="user-info hidden">
-          <span class="user-pill">Signed in as <strong id="current-username"></strong></span>
-          <button id="logout-btn" class="ghost-button">Logout</button>
-        </div>
-      </header>
 
-      <main id="app-section" class="app-layout hidden">
-        <aside class="sidebar">
-          <div class="card">
-            <h2>Create Project</h2>
-            <p class="card-copy">Spin up a new workspace for your ideas.</p>
-            <form id="project-form" class="stacked">
-              <label for="project-name">Project name</label>
-              <input type="text" id="project-name" placeholder="e.g. Launch plan" required />
-              <label for="project-description">Description</label>
-              <textarea id="project-description" placeholder="Optional summary"></textarea>
-              <label for="project-visibility">Visibility</label>
-              <select id="project-visibility">
-                <option value="all" selected>All users</option>
-                <option value="private">Private</option>
-                <option value="selected">Selected users</option>
-              </select>
-              <div id="share-users-wrapper" class="stacked hidden">
-                <p class="help-text">Pick collaborators who can view this project.</p>
-                <div id="share-user-options" class="share-checkboxes"></div>
-              </div>
-              <button type="submit" class="primary-button">Create project</button>
-            </form>
-          </div>
-
-          <div class="card" id="notifications-card">
-            <div class="card-header">
-              <h2>Notifications</h2>
-              <span class="badge hidden" id="notification-count">0</span>
+        <!-- Task Board -->
+        <div id="taskboard-view" class="taskboard-view">
+          <div class="board-column" data-status="new_task">
+            <div class="column-header">
+              <h3>New task</h3>
+              <span class="task-count" data-status="new_task">0</span>
             </div>
-            <ul id="notifications-list" class="notifications"></ul>
+            <div class="tasks-container" data-status="new_task">
+              <!-- Tasks will be loaded here -->
+            </div>
           </div>
-        </aside>
+          <div class="board-column" data-status="scheduled">
+            <div class="column-header">
+              <h3>Scheduled</h3>
+              <span class="task-count" data-status="scheduled">0</span>
+            </div>
+            <div class="tasks-container" data-status="scheduled">
+              <!-- Tasks will be loaded here -->
+            </div>
+          </div>
+          <div class="board-column" data-status="in_progress">
+            <div class="column-header">
+              <h3>In progress</h3>
+              <span class="task-count" data-status="in_progress">0</span>
+            </div>
+            <div class="tasks-container" data-status="in_progress">
+              <!-- Tasks will be loaded here -->
+            </div>
+          </div>
+          <div class="board-column" data-status="completed">
+            <div class="column-header">
+              <h3>Completed</h3>
+              <span class="task-count" data-status="completed">0</span>
+            </div>
+            <div class="tasks-container" data-status="completed">
+              <!-- Tasks will be loaded here -->
+            </div>
+          </div>
+        </div>
 
-        <section class="board">
-          <div class="board-header">
-            <h2>Your projects</h2>
-            <p>Keep track of every milestone, comment, and mention.</p>
-          </div>
-          <div id="projects-container" class="projects-grid"></div>
-        </section>
+        <!-- Dashboard View (hidden by default) -->
+        <div id="dashboard-view" class="dashboard-view hidden">
+          <h2>Dashboard</h2>
+          <p>Welcome to DSBP Project Management System</p>
+        </div>
       </main>
     </div>
 
-    <template id="task-template">
-      <div class="task">
-        <h4 class="task-title"></h4>
-        <p class="task-description"></p>
-        <select class="task-status">
-          <option value="todo">To Do</option>
-          <option value="in_progress">In Progress</option>
-          <option value="done">Done</option>
-        </select>
-        <button class="delete-task">Delete</button>
-        <div class="comments">
-          <h5>Comments</h5>
-          <div class="comment-list"></div>
-          <form class="comment-form">
-            <textarea class="comment-content" placeholder="Add a comment. Use @username to mention." required></textarea>
-            <button type="submit">Comment</button>
+    <!-- Modal: Create Project -->
+    <div id="modal-create-project" class="modal hidden">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h2>Create Project</h2>
+          <button class="btn-close">&times;</button>
+        </div>
+        <form id="form-create-project" class="modal-body">
+          <div class="form-group">
+            <label for="project-name">Project Name</label>
+            <input type="text" id="project-name" name="name" required />
+          </div>
+          <div class="form-group">
+            <label for="project-description">Description</label>
+            <textarea id="project-description" name="description" rows="3"></textarea>
+          </div>
+          <div class="form-group">
+            <label for="project-visibility">Visibility</label>
+            <select id="project-visibility" name="visibility">
+              <option value="all">All users</option>
+              <option value="private">Private</option>
+              <option value="selected">Selected users</option>
+            </select>
+          </div>
+          <div id="project-users-wrapper" class="form-group hidden">
+            <label>Add users</label>
+            <button type="button" id="btn-select-project-users" class="btn-secondary">
+              Select Users
+            </button>
+            <div id="selected-project-users" class="selected-users"></div>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn-secondary modal-cancel">Cancel</button>
+            <button type="submit" class="btn-primary">Create</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- Modal: User Selector -->
+    <div id="modal-user-selector" class="modal hidden">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h2>Select User</h2>
+          <button class="btn-close">&times;</button>
+        </div>
+        <div class="modal-body">
+          <div class="search-box">
+            <input type="text" id="user-search" placeholder="Search users..." />
+          </div>
+          <div class="user-list" id="user-list">
+            <!-- Users will be loaded here -->
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Side Panel: Task Details -->
+    <div id="task-detail-panel" class="side-panel hidden">
+      <div class="side-panel-header">
+        <input type="text" id="task-title-input" class="task-title-edit" placeholder="Task title" />
+        <button id="btn-delete-task" class="btn-delete">
+          <span>🗑️</span>
+          <span>Delete</span>
+        </button>
+      </div>
+      <div class="side-panel-body">
+        <div class="task-field">
+          <div class="field-icon">🔵</div>
+          <label>Status</label>
+          <select id="task-status-select" class="field-input">
+            <option value="new_task">New task</option>
+            <option value="scheduled">Scheduled</option>
+            <option value="in_progress">In progress</option>
+            <option value="completed">Completed</option>
+          </select>
+        </div>
+        <div class="task-field">
+          <div class="field-icon">📅</div>
+          <label>Due date</label>
+          <input type="date" id="task-due-date" class="field-input" />
+        </div>
+        <div class="task-field">
+          <div class="field-icon">👥</div>
+          <label>Assignees</label>
+          <div class="field-value">
+            <div id="task-assignees" class="assignees-list">
+              <!-- Assignees will be shown here -->
+            </div>
+            <button id="btn-add-assignee" class="btn-add-small">+ Add</button>
+          </div>
+        </div>
+        <div class="task-comments">
+          <div class="comments-header">
+            <span class="icon-comment">💬</span>
+            <h3>Comments</h3>
+            <span id="comments-count" class="count-badge">0</span>
+          </div>
+          <div id="comments-list" class="comments-list">
+            <!-- Comments will be loaded here -->
+          </div>
+          <form id="form-add-comment" class="comment-form">
+            <input type="text" placeholder="Add Comment" id="comment-input" />
+            <button type="submit" class="btn-comment-submit">💬 Add Comment</button>
           </form>
         </div>
       </div>
-    </template>
+      <button id="btn-close-panel" class="btn-close-panel">&times;</button>
+    </div>
+
+    <!-- Modal: Add Task -->
+    <div id="modal-add-task" class="modal hidden">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h2>Add Task</h2>
+          <button class="btn-close">&times;</button>
+        </div>
+        <form id="form-add-task" class="modal-body">
+          <div class="form-group">
+            <label for="new-task-title">Title</label>
+            <input type="text" id="new-task-title" name="title" required />
+          </div>
+          <div class="form-group">
+            <label for="new-task-description">Description</label>
+            <textarea id="new-task-description" name="description" rows="3"></textarea>
+          </div>
+          <div class="form-group">
+            <label for="new-task-status">Status</label>
+            <select id="new-task-status" name="status">
+              <option value="new_task">New task</option>
+              <option value="scheduled">Scheduled</option>
+              <option value="in_progress">In progress</option>
+              <option value="completed">Completed</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="new-task-due-date">Due date</label>
+            <input type="date" id="new-task-due-date" name="due_date" />
+          </div>
+          <div class="form-group">
+            <label>Assignees</label>
+            <button type="button" id="btn-select-task-assignees" class="btn-secondary">
+              Select Assignees
+            </button>
+            <div id="selected-task-assignees" class="selected-users"></div>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn-secondary modal-cancel">Cancel</button>
+            <button type="submit" class="btn-primary">Add Task</button>
+          </div>
+        </form>
+      </div>
+    </div>
 
     <script src="/static/app.js"></script>
   </body>

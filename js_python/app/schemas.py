@@ -60,25 +60,29 @@ class ProjectOut(ProjectBase):
 class TaskBase(BaseModel):
     title: str
     description: Optional[str] = ""
-    status: str = "todo"
-    assignee_id: Optional[int] = None
+    status: str = "new_task"
 
 
 class TaskCreate(TaskBase):
     project_id: int
+    due_date: Optional[datetime] = None
+    assignee_ids: List[int] = Field(default_factory=list)
 
 
 class TaskUpdate(BaseModel):
     title: Optional[str] = None
     description: Optional[str] = None
     status: Optional[str] = None
-    assignee_id: Optional[int] = None
+    due_date: Optional[datetime] = None
+    assignee_ids: Optional[List[int]] = None
 
 
 class TaskOut(TaskBase):
     id: int
     project_id: int
     created_at: datetime
+    due_date: Optional[datetime] = None
+    assignees: List["UserOut"] = Field(default_factory=list)
 
     class Config:
         orm_mode = True

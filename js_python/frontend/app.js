@@ -1,53 +1,68 @@
+// API Configuration
 const API_BASE = "";
 let token = localStorage.getItem("kanban_token");
 let currentUser = null;
+let allUsers = [];
+let allProjects = [];
+let currentProject = null;
+let allTasks = [];
+let currentTask = null;
+let userSelectorCallback = null;
+let selectedUserIds = [];
 
-const appSection = document.getElementById("app-section");
-const userInfo = document.getElementById("user-info");
+// DOM Elements
 const currentUsernameEl = document.getElementById("current-username");
-const projectsContainer = document.getElementById("projects-container");
-const notificationsList = document.getElementById("notifications-list");
-const notificationCountEl = document.getElementById("notification-count");
 const logoutBtn = document.getElementById("logout-btn");
-const projectForm = document.getElementById("project-form");
-const visibilitySelect = document.getElementById("project-visibility");
-const shareUsersWrapper = document.getElementById("share-users-wrapper");
-const shareUserOptions = document.getElementById("share-user-options");
+const projectsList = document.getElementById("projects-list");
+const btnAddProject = document.getElementById("btn-add-project");
+const btnSelectUser = document.getElementById("btn-select-user");
+const btnAddTask = document.getElementById("btn-add-task");
+const tabs = document.querySelectorAll(".tab");
+const taskboardView = document.getElementById("taskboard-view");
+const dashboardView = document.getElementById("dashboard-view");
 
-let availableUsers = [];
+// Modals
+const modalCreateProject = document.getElementById("modal-create-project");
+const modalUserSelector = document.getElementById("modal-user-selector");
+const modalAddTask = document.getElementById("modal-add-task");
+const taskDetailPanel = document.getElementById("task-detail-panel");
 
+// API Request Helper
 async function apiRequest(path, options = {}) {
-  const headers = options.headers ? { ...options.headers } : {};
+  const headers = options.headers || {};
   if (token) {
     headers["Authorization"] = `Bearer ${token}`;
   }
   if (!(options.body instanceof FormData)) {
     headers["Content-Type"] = "application/json";
   }
+
   const response = await fetch(`${API_BASE}${path}`, { ...options, headers });
+
   if (!response.ok) {
     if (response.status === 401) {
       logoutUser();
       throw new Error("Session expired. Please log in again.");
     }
-    const message = await response.text();
+    const text = await response.text();
+    let message = text;
+    try {
+      const json = JSON.parse(text);
+      message = json.detail || text;
+    } catch (e) {
+      // ignore
+    }
     throw new Error(message || "Request failed");
   }
+
   if (response.status === 204) {
     return null;
   }
+
   return response.json();
 }
 
-function showApp() {
-  if (appSection) {
-    appSection.classList.remove("hidden");
-  }
-  if (userInfo) {
-    userInfo.classList.remove("hidden");
-  }
-}
-
+// Authentication
 function redirectToLogin() {
   window.location.href = "/login";
 }
@@ -56,448 +71,611 @@ function logoutUser() {
   token = null;
   currentUser = null;
   localStorage.removeItem("kanban_token");
-  if (currentUsernameEl) currentUsernameEl.textContent = "";
-  if (projectsContainer) projectsContainer.innerHTML = "";
-  if (notificationsList) notificationsList.innerHTML = "";
-  if (notificationCountEl) {
-    notificationCountEl.textContent = "0";
-    notificationCountEl.classList.add("hidden");
-  }
-  if (appSection) {
-    appSection.classList.add("hidden");
-  }
-  if (userInfo) {
-    userInfo.classList.add("hidden");
-  }
   redirectToLogin();
 }
 
-function formatVisibility(value) {
-  switch (value) {
-    case "all":
-      return "All users";
-    case "private":
-      return "Private";
-    case "selected":
-      return "Selected users";
-    default:
-      return value;
-  }
-}
-
-function renderShareUserOptions(container, selectedUsernames = [], prefix = "share") {
-  if (!container) {
+// Initialize App
+async function initializeApp() {
+  if (!token) {
+    redirectToLogin();
     return;
   }
 
-  container.innerHTML = "";
-  const selectedSet = new Set(selectedUsernames);
-  const collaborators = availableUsers.filter((user) => !currentUser || user.id !== currentUser.id);
-
-  if (!collaborators.length) {
-    const emptyMessage = document.createElement("p");
-    emptyMessage.className = "empty-note";
-    emptyMessage.textContent = "No other users available yet.";
-    container.appendChild(emptyMessage);
-    return;
-  }
-
-  collaborators.forEach((user) => {
-    const optionId = `${prefix}-user-${user.id}`;
-    const label = document.createElement("label");
-    label.className = "share-option";
-
-    const input = document.createElement("input");
-    input.type = "checkbox";
-    input.value = user.username;
-    input.id = optionId;
-    if (selectedSet.has(user.username)) {
-      input.checked = true;
+  try {
+    currentUser = await apiRequest("/users/me");
+    allUsers = await apiRequest("/users");
+    
+    if (currentUsernameEl) {
+      currentUsernameEl.textContent = currentUser.username;
     }
 
-    const nameSpan = document.createElement("span");
-    nameSpan.textContent = user.username;
-
-    label.appendChild(input);
-    label.appendChild(nameSpan);
-    container.appendChild(label);
-  });
-}
-
-function collectCheckedUsernames(container) {
-  if (!container) {
-    return [];
-  }
-  return Array.from(container.querySelectorAll('input[type="checkbox"]:checked')).map((input) => input.value);
-}
-
-function updateShareVisibilityControls() {
-  if (!shareUsersWrapper || !visibilitySelect) {
-    return;
-  }
-  const shouldShow = visibilitySelect.value === "selected";
-  shareUsersWrapper.classList.toggle("hidden", !shouldShow);
-}
-
-async function loadCurrentUser() {
-  const user = await apiRequest("/users/me");
-  currentUser = user;
-  if (currentUsernameEl) {
-    currentUsernameEl.textContent = user.username;
+    await loadProjects();
+    
+    // Select first project by default
+    if (allProjects.length > 0) {
+      selectProject(allProjects[0].id);
+    }
+  } catch (error) {
+    console.error("Failed to initialize app:", error);
+    alert(error.message);
   }
 }
 
-async function loadAllUsers() {
-  const users = await apiRequest("/users");
-  availableUsers = Array.isArray(users) ? users : [];
-  if (shareUserOptions) {
-    renderShareUserOptions(shareUserOptions);
-  }
-}
-
+// Load Projects
 async function loadProjects() {
-  const projects = await apiRequest("/projects");
-  if (!projectsContainer) {
-    return;
+  try {
+    allProjects = await apiRequest("/projects");
+    renderProjects();
+  } catch (error) {
+    console.error("Failed to load projects:", error);
   }
-  projectsContainer.innerHTML = "";
-  projects.forEach((project) => {
-    const projectEl = renderProject(project);
-    projectsContainer.appendChild(projectEl);
-    const tasksSection = projectEl.querySelector(".tasks");
-    if (tasksSection) {
-      loadTasks(project.id, tasksSection);
-    }
-  });
 }
 
-async function loadTasks(projectId, container) {
-  if (!container) {
-    return;
-  }
-  container.innerHTML = "Loading...";
-  const tasks = await apiRequest(`/projects/${projectId}/tasks`);
-  container.innerHTML = "";
-  tasks.forEach((task) => {
-    container.appendChild(renderTask(task, projectId));
-  });
-  container.appendChild(renderTaskForm(projectId));
-}
+// Render Projects
+function renderProjects() {
+  if (!projectsList) return;
 
-async function loadNotifications() {
-  if (!notificationsList) return;
-  const notifications = await apiRequest("/notifications");
-  notificationsList.innerHTML = "";
-  if (notificationCountEl) {
-    notificationCountEl.textContent = notifications.length;
-    if (notifications.length === 0) {
-      notificationCountEl.classList.add("hidden");
-    } else {
-      notificationCountEl.classList.remove("hidden");
-    }
-  }
-  if (!notifications.length) {
-    const empty = document.createElement("li");
-    empty.textContent = "No notifications";
-    notificationsList.appendChild(empty);
-    return;
-  }
-  notifications.forEach((notification) => {
+  projectsList.innerHTML = "";
+
+  allProjects.forEach((project) => {
     const li = document.createElement("li");
-    li.className = `notification ${notification.read ? "read" : ""}`;
-    const locationBits = [];
-    if (notification.project_name) {
-      locationBits.push(`Project: ${notification.project_name}`);
+    li.className = "project-item";
+    if (currentProject && currentProject.id === project.id) {
+      li.classList.add("active");
     }
-    if (notification.task_title) {
-      locationBits.push(`Task: ${notification.task_title}`);
-    }
-    const locationText = locationBits.length ? ` (${locationBits.join(" · ")})` : "";
-    li.textContent = `${new Date(notification.created_at).toLocaleString()}: ${notification.message}${locationText}`;
-    li.addEventListener("click", async () => {
-      if (!notification.read) {
-        const updated = await apiRequest(`/notifications/${notification.id}/read`, {
-          method: "POST",
-        });
-        notification.read = updated.read;
-        li.classList.add("read");
-      }
-    });
-    notificationsList.appendChild(li);
-  });
-}
 
-function renderProject(project) {
-  const projectEl = document.createElement("div");
-  projectEl.className = "project";
-
-  const canManage = currentUser && project.owner_id === currentUser.id;
-
-  const header = document.createElement("div");
-  header.className = "project-header";
-  const title = document.createElement("h3");
-  title.textContent = project.name;
-  const deleteBtn = document.createElement("button");
-  deleteBtn.textContent = "Delete";
-  deleteBtn.addEventListener("click", async () => {
-    if (confirm("Delete this project?")) {
-      await apiRequest(`/projects/${project.id}`, { method: "DELETE" });
-      await loadProjects();
-    }
-  });
-  header.appendChild(title);
-  if (canManage) {
-    header.appendChild(deleteBtn);
-  }
-
-  const description = document.createElement("p");
-  description.textContent = project.description || "No description";
-
-  const meta = document.createElement("div");
-  meta.className = "project-meta";
-  const visibilityBadge = document.createElement("span");
-  visibilityBadge.className = `visibility-badge visibility-${project.visibility}`;
-  visibilityBadge.textContent = formatVisibility(project.visibility);
-  meta.appendChild(visibilityBadge);
-
-  if (project.visibility === "selected") {
-    const collaborators = document.createElement("p");
-    collaborators.className = "shared-users";
-    if (Array.isArray(project.shared_users) && project.shared_users.length) {
-      const names = project.shared_users.map((user) => user.username).join(", ");
-      collaborators.textContent = `Shared with: ${names}`;
-    } else {
-      collaborators.textContent = "Shared with: (none yet)";
-    }
-    meta.appendChild(collaborators);
-  }
-
-  if (canManage) {
-    const accessForm = document.createElement("form");
-    accessForm.className = "access-form";
-
-    const accessLabel = document.createElement("label");
-    accessLabel.textContent = "Visibility";
-    accessLabel.htmlFor = `visibility-${project.id}`;
-
-    const accessSelect = document.createElement("select");
-    accessSelect.id = `visibility-${project.id}`;
-    accessSelect.innerHTML = `
-      <option value="all">All users</option>
-      <option value="private">Private</option>
-      <option value="selected">Selected users</option>
+    li.innerHTML = `
+      <div class="project-icon"></div>
+      <span>${escapeHtml(project.name)}</span>
     `;
-    accessSelect.value = project.visibility;
 
-    const shareContainer = document.createElement("div");
-    shareContainer.className = "share-checkboxes";
-    renderShareUserOptions(
-      shareContainer,
-      Array.isArray(project.shared_users) ? project.shared_users.map((user) => user.username) : [],
-      `project-${project.id}`,
-    );
-    shareContainer.classList.toggle("hidden", accessSelect.value !== "selected");
-
-    const helpText = document.createElement("p");
-    helpText.className = "help-text";
-    helpText.textContent = "Select collaborators to grant access.";
-    helpText.classList.toggle("hidden", accessSelect.value !== "selected");
-
-    const saveBtn = document.createElement("button");
-    saveBtn.type = "submit";
-    saveBtn.textContent = "Save access";
-
-    accessForm.appendChild(accessLabel);
-    accessForm.appendChild(accessSelect);
-    accessForm.appendChild(helpText);
-    accessForm.appendChild(shareContainer);
-    accessForm.appendChild(saveBtn);
-
-    accessSelect.addEventListener("change", () => {
-      shareContainer.classList.toggle("hidden", accessSelect.value !== "selected");
-      helpText.classList.toggle("hidden", accessSelect.value !== "selected");
-    });
-
-    accessForm.addEventListener("submit", async (event) => {
-      event.preventDefault();
-      const payload = { visibility: accessSelect.value };
-      if (accessSelect.value === "selected") {
-        payload.shared_usernames = collectCheckedUsernames(shareContainer);
-      }
-      try {
-        await apiRequest(`/projects/${project.id}`, {
-          method: "PATCH",
-          body: JSON.stringify(payload),
-        });
-      } catch (error) {
-        alert(error.message || "Unable to update project");
-        return;
-      }
-      await loadProjects();
-    });
-
-    meta.appendChild(accessForm);
-  }
-
-  const tasksContainer = document.createElement("div");
-  tasksContainer.className = "tasks";
-
-  projectEl.appendChild(header);
-  projectEl.appendChild(description);
-  projectEl.appendChild(meta);
-  projectEl.appendChild(tasksContainer);
-
-  return projectEl;
+    li.addEventListener("click", () => selectProject(project.id));
+    projectsList.appendChild(li);
+  });
 }
 
-function renderTask(task, projectId) {
-  const template = document.getElementById("task-template");
-  const fragment = template.content.cloneNode(true);
-  const wrapper = fragment.querySelector(".task");
+// Select Project
+async function selectProject(projectId) {
+  currentProject = allProjects.find((p) => p.id === projectId);
+  if (!currentProject) return;
 
-  const titleEl = fragment.querySelector(".task-title");
-  const descriptionEl = fragment.querySelector(".task-description");
-  const statusSelect = fragment.querySelector(".task-status");
-  const deleteBtn = fragment.querySelector(".delete-task");
-  const commentList = fragment.querySelector(".comment-list");
-  const commentForm = fragment.querySelector(".comment-form");
-  const commentContent = fragment.querySelector(".comment-content");
+  renderProjects(); // Update active state
+  await loadTasks(projectId);
+}
 
-  titleEl.textContent = task.title;
-  descriptionEl.textContent = task.description || "No description";
-  statusSelect.value = task.status;
+// Load Tasks
+async function loadTasks(projectId) {
+  try {
+    allTasks = await apiRequest(`/projects/${projectId}/tasks`);
+    renderTaskBoard();
+  } catch (error) {
+    console.error("Failed to load tasks:", error);
+  }
+}
 
-  statusSelect.addEventListener("change", async () => {
-    await apiRequest(`/tasks/${task.id}`, {
-      method: "PATCH",
-      body: JSON.stringify({ status: statusSelect.value }),
+// Render Task Board
+function renderTaskBoard() {
+  const statuses = ["new_task", "scheduled", "in_progress", "completed"];
+
+  statuses.forEach((status) => {
+    const container = document.querySelector(`.tasks-container[data-status="${status}"]`);
+    const countEl = document.querySelector(`.task-count[data-status="${status}"]`);
+
+    if (!container) return;
+
+    const tasks = allTasks.filter((task) => task.status === status);
+
+    // Update count
+    if (countEl) {
+      countEl.textContent = tasks.length;
+    }
+
+    // Clear container
+    container.innerHTML = "";
+
+    // Render tasks
+    tasks.forEach((task) => {
+      const taskCard = createTaskCard(task);
+      container.appendChild(taskCard);
     });
   });
+}
 
-  deleteBtn.addEventListener("click", async () => {
-    if (confirm("Delete this task?")) {
-      await apiRequest(`/tasks/${task.id}`, { method: "DELETE" });
-      await loadTasks(projectId, wrapper.parentElement);
+// Create Task Card
+function createTaskCard(task) {
+  const card = document.createElement("div");
+  card.className = "task-card";
+  card.dataset.taskId = task.id;
+
+  // Get first assignee for avatar
+  const firstAssignee = task.assignees && task.assignees[0];
+  const avatarInitials = firstAssignee
+    ? getInitials(firstAssignee.username)
+    : "?";
+  const avatarColor = firstAssignee
+    ? `color-${firstAssignee.id % 8}`
+    : "color-0";
+
+  // Format due date
+  let dueDateHtml = "";
+  if (task.due_date) {
+    const dueDate = new Date(task.due_date);
+    const now = new Date();
+    const isOverdue = dueDate < now && task.status !== "completed";
+    const dueDateStr = formatDate(dueDate);
+
+    dueDateHtml = `
+      <div class="task-card-due ${isOverdue ? "overdue" : ""}">
+        ${dueDateStr}
+      </div>
+    `;
+  }
+
+  card.innerHTML = `
+    <div class="task-card-header">
+      <div class="task-avatar ${avatarColor}">${avatarInitials}</div>
+      <div class="task-card-title">${escapeHtml(task.title)}</div>
+    </div>
+    ${dueDateHtml}
+  `;
+
+  card.addEventListener("click", () => openTaskDetail(task.id));
+
+  return card;
+}
+
+// Open Task Detail Panel
+async function openTaskDetail(taskId) {
+  currentTask = allTasks.find((t) => t.id === taskId);
+  if (!currentTask) return;
+
+  // Load comments
+  try {
+    const comments = await apiRequest(`/tasks/${taskId}/comments`);
+    currentTask.comments = comments;
+  } catch (error) {
+    console.error("Failed to load comments:", error);
+    currentTask.comments = [];
+  }
+
+  renderTaskDetail();
+  taskDetailPanel.classList.remove("hidden");
+  taskDetailPanel.classList.add("visible");
+}
+
+// Render Task Detail
+function renderTaskDetail() {
+  if (!currentTask) return;
+
+  // Title
+  const titleInput = document.getElementById("task-title-input");
+  if (titleInput) {
+    titleInput.value = currentTask.title;
+  }
+
+  // Status
+  const statusSelect = document.getElementById("task-status-select");
+  if (statusSelect) {
+    statusSelect.value = currentTask.status;
+  }
+
+  // Due Date
+  const dueDateInput = document.getElementById("task-due-date");
+  if (dueDateInput) {
+    dueDateInput.value = currentTask.due_date
+      ? new Date(currentTask.due_date).toISOString().split("T")[0]
+      : "";
+  }
+
+  // Assignees
+  const assigneesList = document.getElementById("task-assignees");
+  if (assigneesList) {
+    assigneesList.innerHTML = "";
+    if (currentTask.assignees && currentTask.assignees.length > 0) {
+      currentTask.assignees.forEach((assignee) => {
+        const badge = createAssigneeBadge(assignee);
+        assigneesList.appendChild(badge);
+      });
     }
-  });
+  }
 
-  loadComments(task.id, commentList);
+  // Comments
+  const commentsList = document.getElementById("comments-list");
+  const commentsCount = document.getElementById("comments-count");
+  if (commentsList) {
+    commentsList.innerHTML = "";
+    if (currentTask.comments && currentTask.comments.length > 0) {
+      currentTask.comments.forEach((comment) => {
+        const commentEl = createCommentElement(comment);
+        commentsList.appendChild(commentEl);
+      });
+    }
+  }
+  if (commentsCount) {
+    commentsCount.textContent = (currentTask.comments || []).length;
+  }
+}
 
-  commentForm.addEventListener("submit", async (event) => {
-    event.preventDefault();
+// Create Assignee Badge
+function createAssigneeBadge(assignee) {
+  const badge = document.createElement("div");
+  badge.className = "assignee-badge";
+
+  const avatar = document.createElement("div");
+  avatar.className = `assignee-avatar color-${assignee.id % 8}`;
+  avatar.textContent = getInitials(assignee.username);
+
+  const name = document.createElement("span");
+  name.textContent = assignee.username;
+
+  const removeBtn = document.createElement("button");
+  removeBtn.className = "btn-remove-assignee";
+  removeBtn.innerHTML = "&times;";
+  removeBtn.addEventListener("click", () => removeAssignee(assignee.id));
+
+  badge.appendChild(avatar);
+  badge.appendChild(name);
+  badge.appendChild(removeBtn);
+
+  return badge;
+}
+
+// Remove Assignee
+async function removeAssignee(userId) {
+  if (!currentTask) return;
+
+  try {
+    const newAssigneeIds = currentTask.assignees
+      .filter((a) => a.id !== userId)
+      .map((a) => a.id);
+
+    const updated = await apiRequest(`/tasks/${currentTask.id}`, {
+      method: "PATCH",
+      body: JSON.stringify({ assignee_ids: newAssigneeIds }),
+    });
+
+    currentTask = updated;
+    await loadTasks(currentProject.id);
+    renderTaskDetail();
+  } catch (error) {
+    alert("Failed to remove assignee: " + error.message);
+  }
+}
+
+// Create Comment Element
+function createCommentElement(comment) {
+  const div = document.createElement("div");
+  div.className = "comment-item";
+
+  const timeAgo = getTimeAgo(new Date(comment.created_at));
+
+  div.innerHTML = `
+    <div class="comment-avatar color-${comment.author.id % 8}">
+      ${getInitials(comment.author.username)}
+    </div>
+    <div class="comment-content">
+      <div class="comment-meta">
+        <span class="comment-author">${escapeHtml(comment.author.username)}</span>
+        <span class="comment-time">${timeAgo}</span>
+      </div>
+      <div class="comment-text">${escapeHtml(comment.content)}</div>
+    </div>
+  `;
+
+  return div;
+}
+
+// Close Task Detail Panel
+function closeTaskDetail() {
+  taskDetailPanel.classList.remove("visible");
+  taskDetailPanel.classList.add("hidden");
+  currentTask = null;
+}
+
+// Update Task Title
+async function updateTaskTitle() {
+  if (!currentTask) return;
+
+  const titleInput = document.getElementById("task-title-input");
+  const newTitle = titleInput.value.trim();
+
+  if (!newTitle || newTitle === currentTask.title) return;
+
+  try {
+    const updated = await apiRequest(`/tasks/${currentTask.id}`, {
+      method: "PATCH",
+      body: JSON.stringify({ title: newTitle }),
+    });
+
+    currentTask = updated;
+    await loadTasks(currentProject.id);
+  } catch (error) {
+    alert("Failed to update task title: " + error.message);
+  }
+}
+
+// Update Task Status
+async function updateTaskStatus(newStatus) {
+  if (!currentTask) return;
+
+  try {
+    const updated = await apiRequest(`/tasks/${currentTask.id}`, {
+      method: "PATCH",
+      body: JSON.stringify({ status: newStatus }),
+    });
+
+    currentTask = updated;
+    await loadTasks(currentProject.id);
+    renderTaskDetail();
+  } catch (error) {
+    alert("Failed to update task status: " + error.message);
+  }
+}
+
+// Update Task Due Date
+async function updateTaskDueDate(dueDate) {
+  if (!currentTask) return;
+
+  try {
+    const updated = await apiRequest(`/tasks/${currentTask.id}`, {
+      method: "PATCH",
+      body: JSON.stringify({ due_date: dueDate || null }),
+    });
+
+    currentTask = updated;
+    await loadTasks(currentProject.id);
+  } catch (error) {
+    alert("Failed to update task due date: " + error.message);
+  }
+}
+
+// Delete Task
+async function deleteTask() {
+  if (!currentTask) return;
+
+  if (!confirm("Are you sure you want to delete this task?")) return;
+
+  try {
+    await apiRequest(`/tasks/${currentTask.id}`, { method: "DELETE" });
+    await loadTasks(currentProject.id);
+    closeTaskDetail();
+  } catch (error) {
+    alert("Failed to delete task: " + error.message);
+  }
+}
+
+// Add Comment
+async function addComment(content) {
+  if (!currentTask || !content.trim()) return;
+
+  try {
     await apiRequest("/comments", {
       method: "POST",
       body: JSON.stringify({
-        task_id: task.id,
-        content: commentContent.value,
+        task_id: currentTask.id,
+        content: content.trim(),
       }),
     });
-    commentContent.value = "";
-    await loadComments(task.id, commentList);
-    await loadNotifications();
-  });
 
-  return fragment;
+    // Reload comments
+    const comments = await apiRequest(`/tasks/${currentTask.id}/comments`);
+    currentTask.comments = comments;
+    renderTaskDetail();
+
+    // Clear input
+    const commentInput = document.getElementById("comment-input");
+    if (commentInput) {
+      commentInput.value = "";
+    }
+  } catch (error) {
+    alert("Failed to add comment: " + error.message);
+  }
 }
 
-function renderTaskForm(projectId) {
-  const form = document.createElement("form");
-  form.className = "card";
-  form.innerHTML = `
-    <h4>Create Task</h4>
-    <input type="text" name="title" placeholder="Task title" required />
-    <textarea name="description" placeholder="Description"></textarea>
-    <select name="status">
-      <option value="todo">To Do</option>
-      <option value="in_progress">In Progress</option>
-      <option value="done">Done</option>
-    </select>
-    <button type="submit">Add Task</button>
-  `;
-  form.addEventListener("submit", async (event) => {
-    event.preventDefault();
-    const formData = new FormData(form);
+// Show Modal
+function showModal(modal) {
+  modal.classList.remove("hidden");
+}
+
+// Hide Modal
+function hideModal(modal) {
+  modal.classList.add("hidden");
+}
+
+// Open User Selector
+function openUserSelector(callback, multiSelect = true, preselectedIds = []) {
+  userSelectorCallback = callback;
+  selectedUserIds = [...preselectedIds];
+
+  renderUserList(multiSelect);
+  showModal(modalUserSelector);
+}
+
+// Render User List
+function renderUserList(multiSelect) {
+  const userList = document.getElementById("user-list");
+  if (!userList) return;
+
+  userList.innerHTML = "";
+
+  // Add "All Users" option if multi-select
+  if (multiSelect) {
+    const allUsersItem = document.createElement("div");
+    allUsersItem.className = "user-item all-users";
+    allUsersItem.innerHTML = `
+      <div class="user-item-avatar color-0">AL</div>
+      <div class="user-item-info">
+        <div class="user-item-name">All Users</div>
+        <div class="user-item-email">Select all users in the list</div>
+      </div>
+      <input type="checkbox" class="user-item-checkbox" id="user-all" />
+    `;
+
+    const checkbox = allUsersItem.querySelector("#user-all");
+    checkbox.addEventListener("change", () => {
+      if (checkbox.checked) {
+        selectedUserIds = allUsers.map((u) => u.id);
+      } else {
+        selectedUserIds = [];
+      }
+      renderUserList(multiSelect);
+    });
+
+    userList.appendChild(allUsersItem);
+  }
+
+  // Add individual users
+  allUsers.forEach((user) => {
+    const item = document.createElement("div");
+    item.className = "user-item";
+
+    const isChecked = selectedUserIds.includes(user.id);
+
+    item.innerHTML = `
+      <div class="user-item-avatar color-${user.id % 8}">
+        ${getInitials(user.username)}
+      </div>
+      <div class="user-item-info">
+        <div class="user-item-name">${escapeHtml(user.username)}</div>
+        <div class="user-item-email">${escapeHtml(user.email)}</div>
+      </div>
+      <input type="checkbox" class="user-item-checkbox" ${isChecked ? "checked" : ""} />
+    `;
+
+    const checkbox = item.querySelector(".user-item-checkbox");
+    checkbox.addEventListener("change", () => {
+      if (checkbox.checked) {
+        if (multiSelect) {
+          if (!selectedUserIds.includes(user.id)) {
+            selectedUserIds.push(user.id);
+          }
+        } else {
+          selectedUserIds = [user.id];
+        }
+      } else {
+        selectedUserIds = selectedUserIds.filter((id) => id !== user.id);
+      }
+
+      if (!multiSelect) {
+        // Close modal immediately for single select
+        if (userSelectorCallback) {
+          userSelectorCallback(selectedUserIds);
+        }
+        hideModal(modalUserSelector);
+      }
+    });
+
+    userList.appendChild(item);
+  });
+}
+
+// Create Project
+async function createProject(formData) {
+  try {
+    const name = formData.get("name");
+    const description = formData.get("description");
+    const visibility = formData.get("visibility");
+
+    const payload = {
+      name,
+      description: description || "",
+      visibility,
+      shared_usernames: [],
+    };
+
+    if (visibility === "selected" && selectedUserIds.length > 0) {
+      const selectedUsers = allUsers.filter((u) => selectedUserIds.includes(u.id));
+      payload.shared_usernames = selectedUsers.map((u) => u.username);
+    }
+
+    await apiRequest("/projects", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    });
+
+    await loadProjects();
+    hideModal(modalCreateProject);
+
+    // Reset form
+    document.getElementById("form-create-project").reset();
+    selectedUserIds = [];
+  } catch (error) {
+    alert("Failed to create project: " + error.message);
+  }
+}
+
+// Create Task
+async function createTask(formData) {
+  if (!currentProject) {
+    alert("Please select a project first");
+    return;
+  }
+
+  try {
+    const title = formData.get("title");
+    const description = formData.get("description");
+    const status = formData.get("status");
+    const dueDate = formData.get("due_date");
+
+    const payload = {
+      project_id: currentProject.id,
+      title,
+      description: description || "",
+      status,
+      due_date: dueDate || null,
+      assignee_ids: selectedUserIds,
+    };
+
     await apiRequest("/tasks", {
       method: "POST",
-      body: JSON.stringify({
-        project_id: projectId,
-        title: formData.get("title"),
-        description: formData.get("description"),
-        status: formData.get("status"),
-      }),
+      body: JSON.stringify(payload),
     });
-    form.reset();
-    await loadProjects();
-  });
-  return form;
+
+    await loadTasks(currentProject.id);
+    hideModal(modalAddTask);
+
+    // Reset form
+    document.getElementById("form-add-task").reset();
+    selectedUserIds = [];
+    updateSelectedUsers("selected-task-assignees");
+  } catch (error) {
+    alert("Failed to create task: " + error.message);
+  }
 }
 
-async function loadComments(taskId, container) {
-  container.innerHTML = "Loading comments...";
-  const comments = await apiRequest(`/tasks/${taskId}/comments`);
+// Update Selected Users Display
+function updateSelectedUsers(containerId) {
+  const container = document.getElementById(containerId);
+  if (!container) return;
+
   container.innerHTML = "";
-  comments.forEach((comment) => {
-    container.appendChild(renderComment(comment, taskId));
-  });
-}
 
-function renderComment(comment, taskId) {
-  const commentEl = document.createElement("div");
-  commentEl.className = `comment ${comment.solved ? "solved" : ""}`;
-  commentEl.innerHTML = `
-    <div class="meta">${comment.author.username} • ${new Date(comment.created_at).toLocaleString()}</div>
-    <div class="content">${escapeHtml(comment.content)}</div>
-  `;
-
-  if (!comment.solved) {
-    const actions = document.createElement("div");
-    actions.className = "comment-actions";
-    const solveBtn = document.createElement("button");
-    solveBtn.type = "button";
-    solveBtn.textContent = "Mark solved";
-    solveBtn.addEventListener("click", async () => {
-      await apiRequest(`/comments/${comment.id}/solve`, { method: "POST" });
-      await loadComments(taskId, commentEl.parentElement);
-      await loadNotifications();
-    });
-    actions.appendChild(solveBtn);
-    commentEl.appendChild(actions);
+  if (selectedUserIds.length === 0) {
+    container.innerHTML = '<span style="color: #94a3b8; font-size: 13px;">No users selected</span>';
+    return;
   }
 
-  const repliesContainer = document.createElement("div");
-  repliesContainer.className = "comment-replies";
-  comment.replies.forEach((reply) => {
-    repliesContainer.appendChild(renderComment(reply, taskId));
+  selectedUserIds.forEach((userId) => {
+    const user = allUsers.find((u) => u.id === userId);
+    if (!user) return;
+
+    const badge = document.createElement("div");
+    badge.className = "assignee-badge";
+
+    const avatar = document.createElement("div");
+    avatar.className = `assignee-avatar color-${user.id % 8}`;
+    avatar.textContent = getInitials(user.username);
+
+    const name = document.createElement("span");
+    name.textContent = user.username;
+
+    badge.appendChild(avatar);
+    badge.appendChild(name);
+    container.appendChild(badge);
   });
-
-  const replyForm = document.createElement("form");
-  replyForm.className = "comment-form";
-  replyForm.innerHTML = `
-    <textarea class="comment-content" placeholder="Reply" required></textarea>
-    <button type="submit">Reply</button>
-  `;
-  replyForm.addEventListener("submit", async (event) => {
-    event.preventDefault();
-    const textarea = replyForm.querySelector(".comment-content");
-    await apiRequest("/comments", {
-      method: "POST",
-      body: JSON.stringify({
-        task_id: taskId,
-        content: textarea.value,
-        parent_id: comment.id,
-      }),
-    });
-    textarea.value = "";
-    await loadComments(taskId, commentEl.parentElement);
-    await loadNotifications();
-  });
-
-  commentEl.appendChild(repliesContainer);
-  commentEl.appendChild(replyForm);
-
-  return commentEl;
 }
 
+// Utility Functions
 function escapeHtml(text) {
   const map = {
     "&": "&amp;",
@@ -506,70 +684,262 @@ function escapeHtml(text) {
     '"': "&quot;",
     "'": "&#039;",
   };
-  return text.replace(/[&<>"']/g, (m) => map[m]);
+  return String(text).replace(/[&<>"']/g, (m) => map[m]);
 }
 
-async function createProject(event) {
-  event.preventDefault();
-  const nameInput = document.getElementById("project-name");
-  const descriptionInput = document.getElementById("project-description");
-  const name = nameInput ? nameInput.value.trim() : "";
-  const description = descriptionInput ? descriptionInput.value.trim() : "";
-  const visibility = visibilitySelect ? visibilitySelect.value : "all";
-  const shared_usernames =
-    visibility === "selected" ? collectCheckedUsernames(shareUserOptions) : [];
-  try {
-    await apiRequest("/projects", {
-      method: "POST",
-      body: JSON.stringify({ name, description, visibility, shared_usernames }),
-    });
-  } catch (error) {
-    alert(error.message || "Unable to create project");
-    return;
-  }
-  event.target.reset();
-  updateShareVisibilityControls();
-  if (shareUserOptions) {
-    shareUserOptions
-      .querySelectorAll('input[type="checkbox"]')
-      .forEach((input) => {
-        input.checked = false;
-      });
-  }
-  await loadProjects();
+function getInitials(name) {
+  return name
+    .split(" ")
+    .map((n) => n[0])
+    .join("")
+    .toUpperCase()
+    .slice(0, 2);
 }
 
-async function initializeApp() {
-  await loadCurrentUser();
-  await loadAllUsers();
-  updateShareVisibilityControls();
-  await loadProjects();
-  await loadNotifications();
+function formatDate(date) {
+  const now = new Date();
+  const diff = date - now;
+  const days = Math.ceil(diff / (1000 * 60 * 60 * 24));
+
+  if (days === 0) return "Today";
+  if (days === 1) return "Tomorrow";
+  if (days === -1) return "Yesterday";
+  if (days > 1) return `${days} days left`;
+  if (days < -1) return `${Math.abs(days)} days ago`;
+
+  return date.toLocaleDateString();
 }
 
-if (!token) {
-  redirectToLogin();
-} else {
-  initializeApp()
-    .then(() => {
-      showApp();
-    })
-    .catch(() => {
-      logoutUser();
-    });
+function getTimeAgo(date) {
+  const seconds = Math.floor((new Date() - date) / 1000);
+
+  let interval = seconds / 31536000;
+  if (interval > 1) return Math.floor(interval) + " years ago";
+
+  interval = seconds / 2592000;
+  if (interval > 1) return Math.floor(interval) + " months ago";
+
+  interval = seconds / 86400;
+  if (interval > 1) return Math.floor(interval) + " days ago";
+
+  interval = seconds / 3600;
+  if (interval > 1) return Math.floor(interval) + " hours ago";
+
+  interval = seconds / 60;
+  if (interval > 1) return Math.floor(interval) + " minutes ago";
+
+  return "just now";
 }
 
+// Event Listeners
 if (logoutBtn) {
-  logoutBtn.addEventListener("click", (event) => {
-    event.preventDefault();
-    logoutUser();
+  logoutBtn.addEventListener("click", logoutUser);
+}
+
+if (btnAddProject) {
+  btnAddProject.addEventListener("click", () => {
+    selectedUserIds = [];
+    showModal(modalCreateProject);
   });
 }
 
-if (projectForm) {
-  projectForm.addEventListener("submit", createProject);
+if (btnAddTask) {
+  btnAddTask.addEventListener("click", () => {
+    if (!currentProject) {
+      alert("Please select a project first");
+      return;
+    }
+    selectedUserIds = [];
+    updateSelectedUsers("selected-task-assignees");
+    showModal(modalAddTask);
+  });
 }
 
-if (visibilitySelect) {
-  visibilitySelect.addEventListener("change", updateShareVisibilityControls);
+// Tab Navigation
+tabs.forEach((tab) => {
+  tab.addEventListener("click", () => {
+    const tabName = tab.dataset.tab;
+
+    tabs.forEach((t) => t.classList.remove("active"));
+    tab.classList.add("active");
+
+    if (tabName === "taskboard") {
+      taskboardView.classList.remove("hidden");
+      dashboardView.classList.add("hidden");
+    } else if (tabName === "dashboard") {
+      taskboardView.classList.add("hidden");
+      dashboardView.classList.remove("hidden");
+    } else {
+      // Other tabs - show dashboard for now
+      taskboardView.classList.add("hidden");
+      dashboardView.classList.remove("hidden");
+    }
+  });
+});
+
+// Modal Close Buttons
+document.querySelectorAll(".btn-close, .modal-cancel").forEach((btn) => {
+  btn.addEventListener("click", () => {
+    hideModal(modalCreateProject);
+    hideModal(modalUserSelector);
+    hideModal(modalAddTask);
+  });
+});
+
+// Close modal on background click
+document.querySelectorAll(".modal").forEach((modal) => {
+  modal.addEventListener("click", (e) => {
+    if (e.target === modal) {
+      hideModal(modal);
+    }
+  });
+});
+
+// Create Project Form
+const formCreateProject = document.getElementById("form-create-project");
+if (formCreateProject) {
+  formCreateProject.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const formData = new FormData(formCreateProject);
+    await createProject(formData);
+  });
+
+  // Visibility change
+  const visibilitySelect = document.getElementById("project-visibility");
+  const usersWrapper = document.getElementById("project-users-wrapper");
+  if (visibilitySelect && usersWrapper) {
+    visibilitySelect.addEventListener("change", () => {
+      if (visibilitySelect.value === "selected") {
+        usersWrapper.classList.remove("hidden");
+      } else {
+        usersWrapper.classList.add("hidden");
+      }
+    });
+  }
+
+  // Select users button
+  const btnSelectProjectUsers = document.getElementById("btn-select-project-users");
+  if (btnSelectProjectUsers) {
+    btnSelectProjectUsers.addEventListener("click", () => {
+      openUserSelector((userIds) => {
+        selectedUserIds = userIds;
+        updateSelectedUsers("selected-project-users");
+      }, true, selectedUserIds);
+    });
+  }
 }
+
+// Add Task Form
+const formAddTask = document.getElementById("form-add-task");
+if (formAddTask) {
+  formAddTask.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const formData = new FormData(formAddTask);
+    await createTask(formData);
+  });
+
+  // Select assignees button
+  const btnSelectTaskAssignees = document.getElementById("btn-select-task-assignees");
+  if (btnSelectTaskAssignees) {
+    btnSelectTaskAssignees.addEventListener("click", () => {
+      openUserSelector((userIds) => {
+        selectedUserIds = userIds;
+        updateSelectedUsers("selected-task-assignees");
+      }, true, selectedUserIds);
+    });
+  }
+}
+
+// Task Detail Panel Events
+const btnClosePanel = document.getElementById("btn-close-panel");
+if (btnClosePanel) {
+  btnClosePanel.addEventListener("click", closeTaskDetail);
+}
+
+const taskTitleInput = document.getElementById("task-title-input");
+if (taskTitleInput) {
+  taskTitleInput.addEventListener("blur", updateTaskTitle);
+  taskTitleInput.addEventListener("keypress", (e) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      taskTitleInput.blur();
+    }
+  });
+}
+
+const taskStatusSelect = document.getElementById("task-status-select");
+if (taskStatusSelect) {
+  taskStatusSelect.addEventListener("change", () => {
+    updateTaskStatus(taskStatusSelect.value);
+  });
+}
+
+const taskDueDateInput = document.getElementById("task-due-date");
+if (taskDueDateInput) {
+  taskDueDateInput.addEventListener("change", () => {
+    updateTaskDueDate(taskDueDateInput.value);
+  });
+}
+
+const btnDeleteTask = document.getElementById("btn-delete-task");
+if (btnDeleteTask) {
+  btnDeleteTask.addEventListener("click", deleteTask);
+}
+
+const btnAddAssignee = document.getElementById("btn-add-assignee");
+if (btnAddAssignee) {
+  btnAddAssignee.addEventListener("click", () => {
+    if (!currentTask) return;
+
+    const currentAssigneeIds = currentTask.assignees.map((a) => a.id);
+    openUserSelector(async (userIds) => {
+      try {
+        const updated = await apiRequest(`/tasks/${currentTask.id}`, {
+          method: "PATCH",
+          body: JSON.stringify({ assignee_ids: userIds }),
+        });
+
+        currentTask = updated;
+        await loadTasks(currentProject.id);
+        renderTaskDetail();
+      } catch (error) {
+        alert("Failed to update assignees: " + error.message);
+      }
+    }, true, currentAssigneeIds);
+  });
+}
+
+// Add Comment Form
+const formAddComment = document.getElementById("form-add-comment");
+if (formAddComment) {
+  formAddComment.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const commentInput = document.getElementById("comment-input");
+    if (commentInput) {
+      await addComment(commentInput.value);
+    }
+  });
+}
+
+// User Search in Modal
+const userSearchInput = document.getElementById("user-search");
+if (userSearchInput) {
+  userSearchInput.addEventListener("input", () => {
+    const query = userSearchInput.value.toLowerCase();
+    const userItems = document.querySelectorAll(".user-item:not(.all-users)");
+
+    userItems.forEach((item) => {
+      const name = item.querySelector(".user-item-name").textContent.toLowerCase();
+      const email = item.querySelector(".user-item-email").textContent.toLowerCase();
+
+      if (name.includes(query) || email.includes(query)) {
+        item.style.display = "flex";
+      } else {
+        item.style.display = "none";
+      }
+    });
+  });
+}
+
+// Initialize on load
+initializeApp();

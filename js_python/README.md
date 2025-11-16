@@ -1,36 +1,263 @@
-# Digital Software Building System
+# DSBP - Digital Software Building Platform
 
-A full-stack web application with a FastAPI backend and a vanilla JavaScript frontend. The app supports user registration, login, project and task management, threaded comments with @mentions, and per-user notifications. Data is stored in an SQL (SQLite) database. 
+一个现代化的项目管理平台，支持看板式任务管理、多人协作、评论系统和实时通知。
 
-## Features
+## 快速开始
 
-- User registration and JWT-based login
-- Create and delete projects
-- Project visibility controls (public, private, or selected collaborators)
-- Create, update, and delete tasks within projects
-- Threaded task comments with support for `@username` mentions
-- Notifications panel where mentioned users can mark notifications as read
-- Mark comments as solved
-
-## Project Structure
-
-```
-app/            # FastAPI application
-frontend/       # Static frontend assets (HTML, CSS, JS)
-data/           # SQLite database location
-requirements.txt
-```
-
-Then open http://localhost:8000/login in your browser to sign in (or /register to create a new account).
-
-## Development
-
+### 1. 安装依赖
 
 ```bash
+# Windows
 python -m venv .venv
+.venv\Scripts\activate
+pip install -r requirements.txt
+
+# Linux/Mac
+python3 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
+```
+
+### 2. 启动应用
+
+```bash
+# Windows - 双击或运行
+start.bat
+
+# Linux/Mac
+chmod +x start.sh
+./start.sh
+
+# 或手动启动
 uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 ```
 
-The frontend is served automatically from the `frontend/` directory by FastAPI's static files support.
+### 3. 访问应用
+
+- **主页**: http://localhost:8000
+- **注册**: http://localhost:8000/register
+- **API文档**: http://localhost:8000/docs
+
+## 核心功能
+
+- ✅ 用户注册与登录（JWT认证）
+- ✅ 项目管理（公开/私有/指定用户）
+- ✅ 看板式任务管理（新任务/计划中/进行中/已完成）
+- ✅ 任务截止日期管理
+- ✅ 多人分配任务
+- ✅ 评论系统（支持@提及）
+- ✅ 通知中心
+
+## 使用指南
+
+### 首次使用
+
+1. **注册账户** - 访问 `/register` 创建账户
+2. **登录系统** - 使用用户名和密码登录
+3. **创建项目** - 点击左侧"+"按钮创建项目
+4. **添加任务** - 点击顶部"+ Add Task"添加任务
+5. **管理任务** - 点击任务卡片查看详情并编辑
+
+### 主要操作
+
+| 功能 | 操作方法 |
+|------|---------|
+| 创建项目 | 左侧边栏 "+" 按钮 |
+| 添加任务 | 顶部 "+ Add Task" 按钮 |
+| 查看任务详情 | 点击任务卡片 |
+| 修改任务状态 | 任务详情中选择状态 |
+| 分配用户 | 任务详情 → Assignees → + Add |
+| 设置截止日期 | 任务详情 → Due date |
+| 添加评论 | 任务详情底部输入框 |
+| @提及用户 | 评论中输入 @用户名 |
+
+### 用户选择器
+
+在分配任务或共享项目时：
+- **All Users选项** - 勾选后自动选择所有用户
+- **搜索功能** - 输入用户名或邮箱快速查找
+- **多选支持** - 可以选择多个用户
+
+## 技术栈
+
+- **后端**: FastAPI + SQLAlchemy + SQLite
+- **前端**: 原生 JavaScript + HTML5 + CSS3
+- **认证**: JWT (python-jose)
+- **密码加密**: bcrypt
+
+## 项目结构
+
+```
+js_python/
+├── app/                    # 后端应用
+│   ├── main.py            # API路由
+│   ├── models.py          # 数据库模型
+│   ├── schemas.py         # 数据验证
+│   ├── database.py        # 数据库配置
+│   └── auth.py            # 认证逻辑
+├── frontend/              # 前端资源
+│   ├── index.html         # 主应用
+│   ├── app.js             # 应用逻辑
+│   ├── styles.css         # 样式
+│   ├── login.html         # 登录页
+│   ├── register.html      # 注册页
+│   └── auth.css           # 认证页样式
+├── data/                  # 数据存储
+│   └── dsbp.db           # SQLite数据库
+├── start.bat/sh           # 启动脚本
+├── reset_db.bat/sh        # 数据库重置脚本
+└── requirements.txt       # Python依赖
+```
+
+## 常见问题
+
+### ❌ 添加任务时报错 "table tasks has no column named due_date"
+
+**原因**: 数据库使用旧的表结构
+
+**解决方案**:
+```bash
+# Windows
+reset_db.bat
+
+# Linux/Mac
+./reset_db.sh
+```
+
+⚠️ 注意：重置数据库会清空所有数据
+
+### ❌ 端口被占用 (Address already in use)
+
+**解决方案**: 更换端口
+```bash
+uvicorn app.main:app --reload --port 8001
+```
+
+### ❌ 登录后空白页面
+
+**解决方案**:
+1. 清除浏览器缓存 (Ctrl+Shift+Delete)
+2. 强制刷新 (Ctrl+F5)
+3. 检查浏览器Console是否有错误
+4. 确认后端服务正在运行
+
+### ❌ ModuleNotFoundError
+
+**解决方案**:
+```bash
+# 确保虚拟环境已激活
+.venv\Scripts\activate  # Windows
+source .venv/bin/activate  # Linux/Mac
+
+# 重新安装依赖
+pip install -r requirements.txt
+```
+
+## API 文档
+
+启动服务后访问: http://localhost:8000/docs
+
+主要接口：
+- `POST /auth/register` - 用户注册
+- `POST /auth/login` - 用户登录
+- `GET /projects` - 获取项目列表
+- `POST /projects` - 创建项目
+- `GET /projects/{id}/tasks` - 获取任务列表
+- `POST /tasks` - 创建任务
+- `PATCH /tasks/{id}` - 更新任务
+- `POST /comments` - 添加评论
+- `GET /notifications` - 获取通知
+
+## 数据库管理
+
+### 重置数据库
+```bash
+# 停止服务器 (Ctrl+C)
+# 运行重置脚本
+reset_db.bat  # Windows
+./reset_db.sh  # Linux/Mac
+```
+
+### 备份数据库
+```bash
+# Windows
+copy data\dsbp.db data\dsbp_backup.db
+
+# Linux/Mac
+cp data/dsbp.db data/dsbp_backup.db
+```
+
+## 安全建议
+
+⚠️ **生产环境部署前必须修改**:
+
+1. **修改密钥** - 在 `app/auth.py` 中修改 `SECRET_KEY`
+2. **使用生产数据库** - PostgreSQL 或 MySQL
+3. **启用HTTPS** - 使用反向代理（Nginx）
+4. **配置CORS** - 限制允许的源
+5. **环境变量** - 使用 `.env` 文件管理敏感信息
+
+## 开发说明
+
+### 修改代码后
+- 后端：使用 `--reload` 参数会自动重载
+- 前端：刷新浏览器即可
+
+### 查看日志
+```bash
+# 详细日志
+uvicorn app.main:app --reload --log-level debug
+
+# 保存到文件
+uvicorn app.main:app --reload > logs.txt 2>&1
+```
+
+### 数据库检查
+```bash
+# 使用 sqlite3
+sqlite3 data/dsbp.db
+
+# 查看表结构
+.schema tasks
+
+# 查看数据
+SELECT * FROM tasks;
+
+# 退出
+.quit
+```
+
+## 最佳实践
+
+### 项目组织
+- 按产品/功能创建项目
+- 使用清晰的命名
+- 合理设置可见性权限
+
+### 任务管理
+- 标题简洁明了
+- 重要任务设置截止日期
+- 及时更新任务状态
+- 分配给具体负责人
+
+### 团队协作
+- 使用评论讨论细节
+- @提及相关人员
+- 定期查看通知
+- 保持任务信息更新
+
+## 许可证
+
+本项目仅供学习和演示使用。
+
+## 更新日志
+
+### v1.0.0 (2025-11-16)
+- ✅ 初始版本发布
+- ✅ 完整的项目和任务管理功能
+- ✅ 看板视图和任务详情面板
+- ✅ 多人协作和通知系统
+
+---
+
+**需要帮助？** 查看 API 文档: http://localhost:8000/docs
