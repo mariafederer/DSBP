@@ -9,6 +9,13 @@ let allTasks = [];
 let currentTask = null;
 let userSelectorCallback = null;
 let selectedUserIds = [];
+let projectCreationUserIds = [];
+let taskCreationAssigneeIds = [];
+let projectSettingsUserIds = [];
+let dependencyMapData = null;
+let dependencyDataLoaded = false;
+let notifications = [];
+let notificationsLoaded = false;
 
 // DOM Elements
 const currentUsernameEl = document.getElementById("current-username");
@@ -20,6 +27,28 @@ const btnAddTask = document.getElementById("btn-add-task");
 const tabs = document.querySelectorAll(".tab");
 const taskboardView = document.getElementById("taskboard-view");
 const dashboardView = document.getElementById("dashboard-view");
+const dependencyView = document.getElementById("dependency-view");
+const notificationsView = document.getElementById("notifications-view");
+const projectOverviewName = document.getElementById("project-overview-name");
+const projectOverviewDescription = document.getElementById("project-overview-description");
+const projectOverviewVisibility = document.getElementById("project-overview-visibility");
+const projectOverviewOwner = document.getElementById("project-overview-owner");
+const projectSettingsForm = document.getElementById("form-project-settings");
+const projectSettingsNameInput = document.getElementById("project-settings-name");
+const projectSettingsDescriptionInput = document.getElementById("project-settings-description");
+const projectSettingsVisibilitySelect = document.getElementById("project-settings-visibility");
+const projectSettingsUsersWrapper = document.getElementById("project-settings-users-wrapper");
+const projectSettingsUsersContainer = document.getElementById("project-settings-users");
+const projectSettingsMessage = document.getElementById("project-settings-message");
+const btnProjectSettingsUsers = document.getElementById("btn-project-settings-users");
+const notificationsList = document.getElementById("notifications-list");
+const btnRefreshNotifications = document.getElementById("btn-refresh-notifications");
+const dependencyChainsContainer = document.getElementById("dependency-chains");
+const dependencyConvergenceContainer = document.getElementById("dependency-convergences");
+const dependencyEdgesContainer = document.getElementById("dependency-edges");
+const dependencyDependentSelect = document.getElementById("dependency-dependent");
+const dependencyDependsOnSelect = document.getElementById("dependency-depends-on");
+const dependencyStatusText = document.getElementById("dependency-status-text");
 
 // Modals
 const modalCreateProject = document.getElementById("modal-create-project");
@@ -84,13 +113,14 @@ async function initializeApp() {
   try {
     currentUser = await apiRequest("/users/me");
     allUsers = await apiRequest("/users");
-    
+
     if (currentUsernameEl) {
       currentUsernameEl.textContent = currentUser.username;
     }
 
     await loadProjects();
-    
+    showTabView("dashboard");
+
     // Select first project by default
     if (allProjects.length > 0) {
       selectProject(allProjects[0].id);
@@ -106,6 +136,8 @@ async function loadProjects() {
   try {
     allProjects = await apiRequest("/projects");
     renderProjects();
+    renderDashboardProjectInfo();
+    populateProjectSettingsForm();
   } catch (error) {
     console.error("Failed to load projects:", error);
   }
@@ -134,6 +166,45 @@ function renderProjects() {
   });
 }
 
+function formatVisibilityLabel(value) {
+  if (!value) return "Unknown";
+  if (value === "all") return "All users";
+  if (value === "private") return "Private";
+  if (value === "selected") return "Selected users";
+  return value;
+}
+
+function renderDashboardProjectInfo() {
+  if (!projectOverviewName) return;
+
+  if (!currentProject) {
+    projectOverviewName.textContent = "Select a project";
+    if (projectOverviewDescription) {
+      projectOverviewDescription.textContent = "Choose a project from the sidebar to view details.";
+    }
+    if (projectOverviewVisibility) {
+      projectOverviewVisibility.textContent = "Visibility: --";
+    }
+    if (projectOverviewOwner) {
+      projectOverviewOwner.textContent = "Owner: --";
+    }
+    return;
+  }
+
+  projectOverviewName.textContent = currentProject.name;
+  if (projectOverviewDescription) {
+    projectOverviewDescription.textContent = currentProject.description || "No description provided.";
+  }
+  if (projectOverviewVisibility) {
+    projectOverviewVisibility.textContent = `Visibility: ${formatVisibilityLabel(currentProject.visibility)}`;
+  }
+  if (projectOverviewOwner) {
+    const owner = allUsers.find((user) => user.id === currentProject.owner_id);
+    const ownerName = owner ? owner.username : `User #${currentProject.owner_id}`;
+    projectOverviewOwner.textContent = `Owner: ${ownerName}`;
+  }
+}
+
 // Select Project
 async function selectProject(projectId) {
   currentProject = allProjects.find((p) => p.id === projectId);
@@ -141,6 +212,8 @@ async function selectProject(projectId) {
 
   renderProjects(); // Update active state
   await loadTasks(projectId);
+  renderDashboardProjectInfo();
+  populateProjectSettingsForm();
 }
 
 // Load Tasks
@@ -438,6 +511,7 @@ async function deleteTask() {
   try {
     await apiRequest(`/tasks/${currentTask.id}`, { method: "DELETE" });
     await loadTasks(currentProject.id);
+    dependencyDataLoaded = false;
     closeTaskDetail();
   } catch (error) {
     alert("Failed to delete task: " + error.message);
@@ -480,6 +554,10 @@ function showModal(modal) {
 // Hide Modal
 function hideModal(modal) {
   modal.classList.add("hidden");
+  if (modal === modalUserSelector) {
+    userSelectorCallback = null;
+    selectedUserIds = [];
+  }
 }
 
 // Open User Selector
@@ -583,8 +661,8 @@ async function createProject(formData) {
       shared_usernames: [],
     };
 
-    if (visibility === "selected" && selectedUserIds.length > 0) {
-      const selectedUsers = allUsers.filter((u) => selectedUserIds.includes(u.id));
+    if (visibility === "selected" && projectCreationUserIds.length > 0) {
+      const selectedUsers = allUsers.filter((u) => projectCreationUserIds.includes(u.id));
       payload.shared_usernames = selectedUsers.map((u) => u.username);
     }
 
@@ -598,7 +676,9 @@ async function createProject(formData) {
 
     // Reset form
     document.getElementById("form-create-project").reset();
+    projectCreationUserIds = [];
     selectedUserIds = [];
+    updateSelectedUsers("selected-project-users", projectCreationUserIds);
   } catch (error) {
     alert("Failed to create project: " + error.message);
   }
@@ -623,7 +703,7 @@ async function createTask(formData) {
       description: description || "",
       status,
       due_date: dueDate || null,
-      assignee_ids: selectedUserIds,
+      assignee_ids: taskCreationAssigneeIds,
     };
 
     await apiRequest("/tasks", {
@@ -632,30 +712,32 @@ async function createTask(formData) {
     });
 
     await loadTasks(currentProject.id);
+    dependencyDataLoaded = false;
     hideModal(modalAddTask);
 
     // Reset form
     document.getElementById("form-add-task").reset();
+    taskCreationAssigneeIds = [];
     selectedUserIds = [];
-    updateSelectedUsers("selected-task-assignees");
+    updateSelectedUsers("selected-task-assignees", taskCreationAssigneeIds);
   } catch (error) {
     alert("Failed to create task: " + error.message);
   }
 }
 
 // Update Selected Users Display
-function updateSelectedUsers(containerId) {
+function updateSelectedUsers(containerId, userIds = []) {
   const container = document.getElementById(containerId);
   if (!container) return;
 
   container.innerHTML = "";
 
-  if (selectedUserIds.length === 0) {
+  if (!userIds || userIds.length === 0) {
     container.innerHTML = '<span style="color: #94a3b8; font-size: 13px;">No users selected</span>';
     return;
   }
 
-  selectedUserIds.forEach((userId) => {
+  userIds.forEach((userId) => {
     const user = allUsers.find((u) => u.id === userId);
     if (!user) return;
 
@@ -738,9 +820,358 @@ if (logoutBtn) {
 
 if (btnAddProject) {
   btnAddProject.addEventListener("click", () => {
-    selectedUserIds = [];
+    selectedUserIds = [...projectCreationUserIds];
+    updateSelectedUsers("selected-project-users", projectCreationUserIds);
     showModal(modalCreateProject);
   });
+}
+
+function populateProjectSettingsForm() {
+  if (!projectSettingsForm) return;
+
+  if (!currentProject) {
+    projectSettingsForm.reset();
+    projectSettingsUserIds = [];
+    updateSelectedUsers("project-settings-users", projectSettingsUserIds);
+    if (projectSettingsUsersWrapper) {
+      projectSettingsUsersWrapper.classList.add("hidden");
+    }
+    if (projectSettingsMessage) {
+      projectSettingsMessage.textContent = "Select a project to edit its settings.";
+    }
+    Array.from(projectSettingsForm.querySelectorAll("input, textarea, select, button"))
+      .forEach((el) => {
+        el.disabled = true;
+      });
+    return;
+  }
+
+  if (projectSettingsNameInput) {
+    projectSettingsNameInput.value = currentProject.name;
+  }
+  if (projectSettingsDescriptionInput) {
+    projectSettingsDescriptionInput.value = currentProject.description || "";
+  }
+  if (projectSettingsVisibilitySelect) {
+    projectSettingsVisibilitySelect.value = currentProject.visibility;
+  }
+
+  const isOwner = currentUser && currentProject.owner_id === currentUser.id;
+  const shouldShowUsers = currentProject.visibility === "selected";
+  if (projectSettingsUsersWrapper) {
+    if (shouldShowUsers) {
+      projectSettingsUsersWrapper.classList.remove("hidden");
+    } else {
+      projectSettingsUsersWrapper.classList.add("hidden");
+    }
+  }
+
+  projectSettingsUserIds = (currentProject.shared_users || []).map((user) => user.id);
+  updateSelectedUsers("project-settings-users", projectSettingsUserIds);
+
+  Array.from(projectSettingsForm.querySelectorAll("input, textarea, select, button"))
+    .forEach((el) => {
+      el.disabled = !isOwner && el.type !== "button";
+      if (!isOwner && el.tagName === "BUTTON") {
+        el.disabled = true;
+      }
+    });
+
+  if (projectSettingsMessage) {
+    projectSettingsMessage.textContent = isOwner
+      ? "Update the project visibility or sharing at any time."
+      : "Only the project owner can update visibility settings.";
+  }
+}
+
+async function handleProjectSettingsSubmit(event) {
+  event.preventDefault();
+  if (!currentProject) {
+    alert("Select a project before updating settings.");
+    return;
+  }
+  if (!currentUser || currentProject.owner_id !== currentUser.id) {
+    alert("Only the project owner can update visibility settings.");
+    return;
+  }
+
+  const name = projectSettingsNameInput ? projectSettingsNameInput.value.trim() : currentProject.name;
+  const description = projectSettingsDescriptionInput
+    ? projectSettingsDescriptionInput.value.trim()
+    : currentProject.description || "";
+  const visibility = projectSettingsVisibilitySelect
+    ? projectSettingsVisibilitySelect.value
+    : currentProject.visibility;
+
+  const payload = {
+    name: name || currentProject.name,
+    description,
+    visibility,
+    shared_usernames: [],
+  };
+
+  if (visibility === "selected" && projectSettingsUserIds.length > 0) {
+    const selectedUsers = allUsers.filter((user) => projectSettingsUserIds.includes(user.id));
+    payload.shared_usernames = selectedUsers.map((user) => user.username);
+  }
+
+  try {
+    const projectId = currentProject.id;
+    await apiRequest(`/projects/${projectId}`, {
+      method: "PATCH",
+      body: JSON.stringify(payload),
+    });
+    dependencyDataLoaded = false;
+    await loadProjects();
+    await selectProject(projectId);
+    if (projectSettingsMessage) {
+      projectSettingsMessage.textContent = "Project settings updated successfully.";
+    }
+  } catch (error) {
+    alert("Failed to update project: " + error.message);
+  }
+}
+
+async function loadDependencyData(force = false) {
+  if (dependencyDataLoaded && !force) {
+    renderDependencyView();
+    return;
+  }
+  try {
+    dependencyMapData = await apiRequest("/dependency-map");
+    dependencyDataLoaded = true;
+    renderDependencyView();
+  } catch (error) {
+    dependencyDataLoaded = false;
+    if (dependencyStatusText) {
+      dependencyStatusText.textContent = error.message;
+    }
+  }
+}
+
+function buildDependencyTaskLabel(task) {
+  return `${task.title} (${task.project_name})`;
+}
+
+function renderDependencyView() {
+  if (!dependencyView) return;
+
+  const hasTasks = dependencyMapData && dependencyMapData.tasks && dependencyMapData.tasks.length > 0;
+  if (!hasTasks) {
+    if (dependencyDependentSelect) {
+      dependencyDependentSelect.innerHTML = '<option value="">No tasks available</option>';
+      dependencyDependentSelect.disabled = true;
+    }
+    if (dependencyDependsOnSelect) {
+      dependencyDependsOnSelect.innerHTML = '<option value="">No tasks available</option>';
+      dependencyDependsOnSelect.disabled = true;
+    }
+    if (dependencyStatusText) {
+      dependencyStatusText.textContent = "Create tasks to start building the dependency map.";
+    }
+    if (dependencyChainsContainer) dependencyChainsContainer.innerHTML = "";
+    if (dependencyConvergenceContainer) dependencyConvergenceContainer.innerHTML = "";
+    if (dependencyEdgesContainer) dependencyEdgesContainer.innerHTML = "";
+    return;
+  }
+
+  const tasks = [...dependencyMapData.tasks].sort((a, b) => {
+    if (a.project_name.toLowerCase() === b.project_name.toLowerCase()) {
+      return a.title.localeCompare(b.title);
+    }
+    return a.project_name.localeCompare(b.project_name);
+  });
+
+  if (dependencyDependentSelect && dependencyDependsOnSelect) {
+    const optionsHtml = tasks
+      .map((task) => `<option value="${task.id}">${escapeHtml(buildDependencyTaskLabel(task))}</option>`)
+      .join("");
+    dependencyDependentSelect.innerHTML = `<option value="">Dependent task...</option>${optionsHtml}`;
+    dependencyDependsOnSelect.innerHTML = `<option value="">Depends on...</option>${optionsHtml}`;
+    dependencyDependentSelect.disabled = false;
+    dependencyDependsOnSelect.disabled = false;
+  }
+
+  if (dependencyStatusText) {
+    dependencyStatusText.textContent = dependencyMapData.edges.length === 0
+      ? "No dependencies defined yet."
+      : "";
+  }
+
+  if (dependencyChainsContainer) {
+    dependencyChainsContainer.innerHTML = "";
+    if (dependencyMapData.chains.length === 0) {
+      dependencyChainsContainer.innerHTML = "<p>No linear chains detected.</p>";
+    } else {
+      dependencyMapData.chains.forEach((chain) => {
+        const card = document.createElement("div");
+        card.className = "dependency-card";
+        card.textContent = chain.tasks
+          .map((task) => buildDependencyTaskLabel(task))
+          .join(" → ");
+        dependencyChainsContainer.appendChild(card);
+      });
+    }
+  }
+
+  if (dependencyConvergenceContainer) {
+    dependencyConvergenceContainer.innerHTML = "";
+    if (dependencyMapData.convergences.length === 0) {
+      dependencyConvergenceContainer.innerHTML = "<p>No converging dependencies detected.</p>";
+    } else {
+      dependencyMapData.convergences.forEach((group) => {
+        const card = document.createElement("div");
+        card.className = "dependency-card";
+        const sources = group.sources.map((task) => buildDependencyTaskLabel(task)).join(", ");
+        card.textContent = `${sources} → ${buildDependencyTaskLabel(group.target)}`;
+        dependencyConvergenceContainer.appendChild(card);
+      });
+    }
+  }
+
+  if (dependencyEdgesContainer) {
+    dependencyEdgesContainer.innerHTML = "";
+    if (dependencyMapData.edges.length === 0) {
+      dependencyEdgesContainer.innerHTML = "<p>No direct dependencies defined.</p>";
+    } else {
+      dependencyMapData.edges.forEach((edge) => {
+        const row = document.createElement("div");
+        row.className = "dependency-edge-row";
+        row.innerHTML = `
+          <span>${escapeHtml(buildDependencyTaskLabel(edge.depends_on))} → ${escapeHtml(
+          buildDependencyTaskLabel(edge.dependent)
+        )}</span>
+          <button class="btn-secondary btn-small" data-dependency-id="${edge.id}">Remove</button>
+        `;
+        const btn = row.querySelector("button");
+        btn.addEventListener("click", () => deleteDependencyLink(edge.id));
+        dependencyEdgesContainer.appendChild(row);
+      });
+    }
+  }
+}
+
+async function handleAddDependency(event) {
+  event.preventDefault();
+  if (!dependencyDependentSelect || !dependencyDependsOnSelect) return;
+
+  const dependentId = parseInt(dependencyDependentSelect.value, 10);
+  const dependsOnId = parseInt(dependencyDependsOnSelect.value, 10);
+
+  if (!dependentId || !dependsOnId) {
+    alert("Please select both tasks to create a dependency.");
+    return;
+  }
+  if (dependentId === dependsOnId) {
+    alert("A task cannot depend on itself.");
+    return;
+  }
+
+  try {
+    await apiRequest("/task-dependencies", {
+      method: "POST",
+      body: JSON.stringify({
+        dependent_task_id: dependentId,
+        depends_on_task_id: dependsOnId,
+      }),
+    });
+    if (dependencyStatusText) {
+      dependencyStatusText.textContent = "Dependency created.";
+    }
+    await loadDependencyData(true);
+    event.target.reset();
+  } catch (error) {
+    alert("Failed to create dependency: " + error.message);
+  }
+}
+
+async function deleteDependencyLink(dependencyId) {
+  if (!confirm("Remove this dependency?")) return;
+  try {
+    await apiRequest(`/task-dependencies/${dependencyId}`, { method: "DELETE" });
+    if (dependencyStatusText) {
+      dependencyStatusText.textContent = "Dependency removed.";
+    }
+    await loadDependencyData(true);
+  } catch (error) {
+    alert("Failed to remove dependency: " + error.message);
+  }
+}
+
+async function loadNotifications(force = false) {
+  if (notificationsLoaded && !force) {
+    renderNotifications();
+    return;
+  }
+  try {
+    notifications = await apiRequest("/notifications");
+    notificationsLoaded = true;
+    renderNotifications();
+  } catch (error) {
+    notificationsLoaded = false;
+    if (notificationsList) {
+      notificationsList.innerHTML = `<li class="notification-item">${escapeHtml(error.message)}</li>`;
+    }
+  }
+}
+
+function renderNotifications() {
+  if (!notificationsList) return;
+  notificationsList.innerHTML = "";
+
+  if (!notifications || notifications.length === 0) {
+    const empty = document.createElement("li");
+    empty.className = "notification-item empty";
+    empty.textContent = "You're all caught up!";
+    notificationsList.appendChild(empty);
+    return;
+  }
+
+  notifications.forEach((notification) => {
+    const item = document.createElement("li");
+    item.className = "notification-item";
+    if (!notification.read) {
+      item.classList.add("unread");
+    }
+
+    const locationBits = [];
+    if (notification.project_name) {
+      locationBits.push(notification.project_name);
+    }
+    if (notification.task_title) {
+      locationBits.push(notification.task_title);
+    }
+    const location = locationBits.length > 0 ? ` • ${locationBits.join(" → ")}` : "";
+
+    item.innerHTML = `
+      <div>
+        <p class="notification-message">${escapeHtml(notification.message)}${escapeHtml(location)}</p>
+        <span class="notification-time">${new Date(notification.created_at).toLocaleString()}</span>
+      </div>
+    `;
+
+    if (!notification.read) {
+      const btn = document.createElement("button");
+      btn.className = "btn-secondary btn-small";
+      btn.textContent = "Mark as read";
+      btn.addEventListener("click", () => markNotificationRead(notification.id));
+      item.appendChild(btn);
+    }
+
+    notificationsList.appendChild(item);
+  });
+}
+
+async function markNotificationRead(notificationId) {
+  try {
+    const updated = await apiRequest(`/notifications/${notificationId}/read`, {
+      method: "POST",
+    });
+    notifications = notifications.map((n) => (n.id === notificationId ? updated : n));
+    renderNotifications();
+  } catch (error) {
+    alert("Failed to update notification: " + error.message);
+  }
 }
 
 if (btnAddTask) {
@@ -749,10 +1180,31 @@ if (btnAddTask) {
       alert("Please select a project first");
       return;
     }
-    selectedUserIds = [];
-    updateSelectedUsers("selected-task-assignees");
+    selectedUserIds = [...taskCreationAssigneeIds];
+    updateSelectedUsers("selected-task-assignees", taskCreationAssigneeIds);
     showModal(modalAddTask);
   });
+}
+
+function showTabView(tabName) {
+  const views = [taskboardView, dashboardView, dependencyView, notificationsView];
+  views.forEach((view) => {
+    if (view) {
+      view.classList.add("hidden");
+    }
+  });
+
+  if (tabName === "taskboard" && taskboardView) {
+    taskboardView.classList.remove("hidden");
+  } else if (tabName === "dashboard" && dashboardView) {
+    dashboardView.classList.remove("hidden");
+  } else if (tabName === "dependency" && dependencyView) {
+    dependencyView.classList.remove("hidden");
+    loadDependencyData(true);
+  } else if (tabName === "notifications" && notificationsView) {
+    notificationsView.classList.remove("hidden");
+    loadNotifications(true);
+  }
 }
 
 // Tab Navigation
@@ -763,17 +1215,7 @@ tabs.forEach((tab) => {
     tabs.forEach((t) => t.classList.remove("active"));
     tab.classList.add("active");
 
-    if (tabName === "taskboard") {
-      taskboardView.classList.remove("hidden");
-      dashboardView.classList.add("hidden");
-    } else if (tabName === "dashboard") {
-      taskboardView.classList.add("hidden");
-      dashboardView.classList.remove("hidden");
-    } else {
-      // Other tabs - show dashboard for now
-      taskboardView.classList.add("hidden");
-      dashboardView.classList.remove("hidden");
-    }
+    showTabView(tabName);
   });
 });
 
@@ -822,9 +1264,9 @@ if (formCreateProject) {
   if (btnSelectProjectUsers) {
     btnSelectProjectUsers.addEventListener("click", () => {
       openUserSelector((userIds) => {
-        selectedUserIds = userIds;
-        updateSelectedUsers("selected-project-users");
-      }, true, selectedUserIds);
+        projectCreationUserIds = userIds;
+        updateSelectedUsers("selected-project-users", projectCreationUserIds);
+      }, true, projectCreationUserIds);
     });
   }
 }
@@ -843,11 +1285,61 @@ if (formAddTask) {
   if (btnSelectTaskAssignees) {
     btnSelectTaskAssignees.addEventListener("click", () => {
       openUserSelector((userIds) => {
-        selectedUserIds = userIds;
-        updateSelectedUsers("selected-task-assignees");
-      }, true, selectedUserIds);
+        taskCreationAssigneeIds = userIds;
+        updateSelectedUsers("selected-task-assignees", taskCreationAssigneeIds);
+      }, true, taskCreationAssigneeIds);
     });
   }
+}
+
+if (projectSettingsForm) {
+  projectSettingsForm.addEventListener("submit", handleProjectSettingsSubmit);
+}
+
+if (projectSettingsVisibilitySelect && projectSettingsUsersWrapper) {
+  projectSettingsVisibilitySelect.addEventListener("change", () => {
+    if (projectSettingsVisibilitySelect.value === "selected") {
+      projectSettingsUsersWrapper.classList.remove("hidden");
+    } else {
+      projectSettingsUsersWrapper.classList.add("hidden");
+    }
+  });
+}
+
+if (btnProjectSettingsUsers) {
+  btnProjectSettingsUsers.addEventListener("click", () => {
+    if (!currentProject || !currentUser || currentProject.owner_id !== currentUser.id) return;
+    openUserSelector((userIds) => {
+      projectSettingsUserIds = userIds;
+      updateSelectedUsers("project-settings-users", projectSettingsUserIds);
+    }, true, projectSettingsUserIds);
+  });
+}
+
+const formAddDependency = document.getElementById("form-add-dependency");
+if (formAddDependency) {
+  formAddDependency.addEventListener("submit", handleAddDependency);
+}
+
+if (btnRefreshNotifications) {
+  btnRefreshNotifications.addEventListener("click", () => loadNotifications(true));
+}
+
+const btnUserSelectorApply = document.getElementById("btn-user-selector-apply");
+if (btnUserSelectorApply) {
+  btnUserSelectorApply.addEventListener("click", () => {
+    if (userSelectorCallback) {
+      userSelectorCallback([...selectedUserIds]);
+    }
+    hideModal(modalUserSelector);
+  });
+}
+
+const btnUserSelectorCancel = document.getElementById("btn-user-selector-cancel");
+if (btnUserSelectorCancel) {
+  btnUserSelectorCancel.addEventListener("click", () => {
+    hideModal(modalUserSelector);
+  });
 }
 
 // Task Detail Panel Events
