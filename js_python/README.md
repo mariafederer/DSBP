@@ -4,6 +4,18 @@
 
 ## 快速开始
 
+### 0. 配置环境变量
+
+项目根目录需要一个未提交的 `.env` 文件，最小内容如下（可根据需要调整）：
+
+```bash
+DATABASE_URL=sqlite:///./data/dsbp.db
+SECRET_KEY=CHANGE_ME_SECRET
+ACCESS_TOKEN_EXPIRE_MINUTES=1440
+```
+
+> `.env` 默认被忽略，提交前请确认未包含敏感信息。
+
 ### 1. 安装依赖
 
 ```bash
@@ -29,7 +41,7 @@ chmod +x start.sh
 ./start.sh
 
 # 或手动启动
-uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+uvicorn main:app --reload --host 0.0.0.0 --port 8000
 ```
 
 ### 3. 访问应用
@@ -89,25 +101,40 @@ uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 
 ```
 js_python/
+├── main.py                 # FastAPI 入口
 ├── app/                    # 后端应用
-│   ├── main.py            # API路由
-│   ├── models.py          # 数据库模型
-│   ├── schemas.py         # 数据验证
-│   ├── database.py        # 数据库配置
-│   └── auth.py            # 认证逻辑
-├── frontend/              # 前端资源
-│   ├── index.html         # 主应用
-│   ├── app.js             # 应用逻辑
-│   ├── styles.css         # 样式
-│   ├── login.html         # 登录页
-│   ├── register.html      # 注册页
-│   └── auth.css           # 认证页样式
-├── data/                  # 数据存储
-│   └── dsbp.db           # SQLite数据库
-├── start.bat/sh           # 启动脚本
-├── reset_db.bat/sh        # 数据库重置脚本
-└── requirements.txt       # Python依赖
+│   ├── api/
+│   │   └── routes.py       # API路由定义
+│   ├── core/
+│   │   ├── app.py          # 应用工厂与中间件
+│   │   └── database.py     # 数据库配置
+│   ├── models/
+│   │   └── __init__.py     # SQLAlchemy模型
+│   ├── schemas/
+│   │   └── __init__.py     # Pydantic校验
+│   ├── services/
+│   │   └── auth.py         # 认证/鉴权逻辑
+│   ├── static/             # 后端静态资源（占位）
+│   └── templates/          # 模板占位
+├── frontend/               # 前端资源
+│   ├── public/             # 直接暴露的HTML
+│   │   ├── index.html
+│   │   ├── login.html
+│   │   └── register.html
+│   └── src/                # JS/CSS 源文件
+│       ├── components/     # 通用脚本
+│       ├── pages/          # 页面脚本
+│       └── assets/
+│           └── styles/     # 样式文件
+├── data/
+│   └── dsbp.db             # SQLite数据库
+├── tests/                  # 自动化测试
+├── start.bat / start.sh    # 启动脚本
+├── reset_db.bat / reset_db.sh
+└── requirements.txt
 ```
+
+> `.env` 文件因安全策略未纳入仓库，请根据说明手动创建。
 
 ## 常见问题
 
@@ -130,7 +157,7 @@ reset_db.bat
 
 **解决方案**: 更换端口
 ```bash
-uvicorn app.main:app --reload --port 8001
+uvicorn main:app --reload --port 8001
 ```
 
 ### ❌ 登录后空白页面
@@ -191,7 +218,7 @@ cp data/dsbp.db data/dsbp_backup.db
 
 ⚠️ **生产环境部署前必须修改**:
 
-1. **修改密钥** - 在 `app/auth.py` 中修改 `SECRET_KEY`
+1. **修改密钥** - 在 `app/services/auth.py` 中修改 `SECRET_KEY`
 2. **使用生产数据库** - PostgreSQL 或 MySQL
 3. **启用HTTPS** - 使用反向代理（Nginx）
 4. **配置CORS** - 限制允许的源
@@ -206,10 +233,10 @@ cp data/dsbp.db data/dsbp_backup.db
 ### 查看日志
 ```bash
 # 详细日志
-uvicorn app.main:app --reload --log-level debug
+uvicorn main:app --reload --log-level debug
 
 # 保存到文件
-uvicorn app.main:app --reload > logs.txt 2>&1
+uvicorn main:app --reload > logs.txt 2>&1
 ```
 
 ### 数据库检查

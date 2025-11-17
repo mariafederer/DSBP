@@ -1,0 +1,53 @@
+###########################
+# Python & FastAPI project
+###########################
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Python bytecode / cache
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+
+# Tooling cache
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# OS / editor artifacts
+.DS_Store
+Thumbs.db
+*.swp
+.idea/
+.vscode/
+
+# Environment & secrets
+.env
+.env.*
+
+# Local data / DB backups
+data/*.db
+data/*.sqlite
+data/*.sqlite3
+*.db
+
+# Build / log folders
+logs/
+dist/
+build/
+
+# Frontend dependencies (if added later)
+node_modules/
+
+# Misc scripts / coverage
+coverage/
+*.log
+
+# Temporary files
+tmp/
+*.bak
+

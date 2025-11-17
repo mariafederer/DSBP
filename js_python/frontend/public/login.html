@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Sign in · Digital Software Building System</title>
+    <link rel="stylesheet" href="/static/src/assets/styles/auth.css" />
+  </head>
+  <body class="auth-body">
+    <main class="auth-shell">
+      <section class="auth-card">
+        <div class="auth-header">
+          <div class="logo">K</div>
+          <div>
+            <h1>Welcome back</h1>
+            <p>Sign in to keep your projects flowing.</p>
+          </div>
+        </div>
+        <p id="login-error" class="auth-error hidden"></p>
+        <form id="login-form" class="stacked">
+          <label for="login-username">Username</label>
+          <input type="text" id="login-username" name="username" autocomplete="username" required />
+          <label for="login-password">Password</label>
+          <input type="password" id="login-password" name="password" autocomplete="current-password" required />
+          <button type="submit" class="primary-button">Log in</button>
+        </form>
+        <p class="auth-meta">
+          New to Digital Software Building System?
+          <a href="/register" class="accent-link">Create an account</a>
+        </p>
+      </section>
+    </main>
+    <script src="/static/src/pages/login.js"></script>
+  </body>
+</html>

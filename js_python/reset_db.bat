@@ -28,7 +28,7 @@ if exist "data\dsbp.db" (
 
 echo.
 echo Creating new database with updated schema...
-python -c "from app.database import Base, engine; from app import models; Base.metadata.create_all(bind=engine); print('✓ Database created successfully!')"
+python -c "from app.core.database import Base, engine; import app.models; Base.metadata.create_all(bind=engine); print('✓ Database created successfully!')"
 
 echo.
 echo ========================================
