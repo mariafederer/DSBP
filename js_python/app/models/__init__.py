@@ -56,6 +56,7 @@ class User(Base):
         secondary=task_assignees,
         back_populates="assignees",
     )
+    task_activities = relationship("TaskActivity", back_populates="user", cascade="all, delete-orphan")
 
 
 class Project(Base):
@@ -75,6 +76,7 @@ class Project(Base):
         secondary=project_shared_users,
         back_populates="shared_projects",
     )
+    task_activities = relationship("TaskActivity", back_populates="project", cascade="all, delete-orphan")
 
 
 class Task(Base):
@@ -178,3 +180,20 @@ class Notification(Base):
         if self.comment and self.comment.task and self.comment.task.project:
             return self.comment.task.project.name
         return None
+
+
+class TaskActivity(Base):
+    __tablename__ = "task_activities"
+
+    id = Column(Integer, primary_key=True, index=True)
+    action = Column(String(50), nullable=False)
+    status = Column(String(50), nullable=True)
+    task_title = Column(String(150), nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    project_id = Column(Integer, ForeignKey("projects.id", ondelete="CASCADE"), nullable=False)
+    task_id = Column(Integer, ForeignKey("tasks.id", ondelete="SET NULL"), nullable=True)
+
+    user = relationship("User", back_populates="task_activities")
+    project = relationship("Project", back_populates="task_activities")
+    task = relationship("Task")

@@ -1,12 +1,13 @@
-"""API routes for the DSBP Kanban backend."""
+"""API routes for the DSBP backend."""
 
 import re
-from datetime import timedelta
+from collections import defaultdict
+from datetime import date, datetime, timedelta
 from typing import Dict, Iterable, List, Optional, Set
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.responses import FileResponse
-from sqlalchemy import or_
+from sqlalchemy import func, or_
 from sqlalchemy.orm import Session
 
 import app.models as models
@@ -101,6 +102,27 @@ def apply_project_visibility(
     )
 
 
+def log_task_activity(
+    db: Session,
+    *,
+    user: models.User,
+    project: models.Project,
+    task: Optional[models.Task],
+    action: str,
+    status: Optional[str] = None,
+) -> None:
+    """Persist a task activity entry for dashboard history."""
+    activity = models.TaskActivity(
+        user_id=user.id,
+        project_id=project.id,
+        task_id=task.id if task else None,
+        task_title=task.title if task else None,
+        status=status,
+        action=action,
+    )
+    db.add(activity)
+
+
 # --- Authentication endpoints -------------------------------------------------
 
 @router.post("/auth/register", response_model=schemas.UserOut, status_code=status.HTTP_201_CREATED)
@@ -162,6 +184,34 @@ def list_projects(db: Session = Depends(get_db), current_user: models.User = Dep
         .all()
     )
     return projects
+
+
+@router.get("/projects/{project_id}/dashboard", response_model=schemas.ProjectDashboardOut)
+def project_dashboard_summary(
+    project_id: int,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(auth.get_current_user),
+):
+    """Provide aggregate task counts for the dashboard donut chart."""
+    project = ensure_project_access(project_id, db, current_user)
+
+    status_counts: Dict[str, int] = {}
+    results = (
+        db.query(models.Task.status, func.count(models.Task.id))
+        .filter(models.Task.project_id == project.id)
+        .group_by(models.Task.status)
+        .all()
+    )
+    for status, count in results:
+        status_counts[status or "unknown"] = count
+
+    total_tasks = sum(status_counts.values())
+    return schemas.ProjectDashboardOut(
+        project_id=project.id,
+        total_tasks=total_tasks,
+        status_counts=status_counts,
+        updated_at=datetime.utcnow(),
+    )
 
 
 @router.post("/projects", response_model=schemas.ProjectOut, status_code=status.HTTP_201_CREATED)
@@ -238,6 +288,57 @@ def list_tasks(
     return db.query(models.Task).filter(models.Task.project_id == project.id).all()
 
 
+@router.get("/projects/{project_id}/task-history", response_model=schemas.TaskHistoryResponse)
+def task_history(
+    project_id: int,
+    date_filter: Optional[date] = None,
+    start_date: Optional[date] = None,
+    end_date: Optional[date] = None,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(auth.get_current_user),
+):
+    """Return task creation/deletion history for the authenticated user."""
+    project = ensure_project_access(project_id, db, current_user)
+
+    if date_filter:
+        start_date = date_filter
+        end_date = date_filter
+
+    today = datetime.utcnow().date()
+    if not start_date:
+        start_date = today.replace(day=1)
+    if not end_date:
+        end_date = today
+
+    if start_date > end_date:
+        start_date, end_date = end_date, start_date
+
+    start_dt = datetime.combine(start_date, datetime.min.time())
+    end_dt = datetime.combine(end_date, datetime.max.time())
+
+    activities = (
+        db.query(models.TaskActivity)
+        .filter(
+            models.TaskActivity.project_id == project.id,
+            models.TaskActivity.user_id == current_user.id,
+            models.TaskActivity.created_at >= start_dt,
+            models.TaskActivity.created_at <= end_dt,
+        )
+        .order_by(models.TaskActivity.created_at.desc())
+        .all()
+    )
+
+    daily_counts: Dict[str, int] = defaultdict(int)
+    for activity in activities:
+        key = activity.created_at.strftime("%Y-%m-%d")
+        daily_counts[key] += 1
+
+    return schemas.TaskHistoryResponse(
+        activities=activities,
+        daily_counts=dict(daily_counts),
+    )
+
+
 @router.get("/tasks", response_model=List[schemas.TaskOut])
 def list_all_accessible_tasks(
     db: Session = Depends(get_db),
@@ -278,6 +379,14 @@ def create_task(
         assignees = db.query(models.User).filter(models.User.id.in_(task_in.assignee_ids)).all()
         task.assignees = assignees
     
+    log_task_activity(
+        db,
+        user=current_user,
+        project=project,
+        task=task,
+        action="created",
+        status=task.status,
+    )
     db.commit()
     db.refresh(task)
     return task
@@ -293,6 +402,7 @@ def update_task(
     """Apply partial updates to a task and optionally reset its assignees."""
     task = ensure_task_access(task_id, db, current_user)
     
+    original_status = task.status
     update_data = task_update.dict(exclude_unset=True)
     assignee_ids = update_data.pop("assignee_ids", None)
     
@@ -304,6 +414,16 @@ def update_task(
         assignees = db.query(models.User).filter(models.User.id.in_(assignee_ids)).all()
         task.assignees = assignees
     
+    if "status" in update_data and task.status != original_status:
+        log_task_activity(
+            db,
+            user=current_user,
+            project=task.project,
+            task=task,
+            action="status_changed",
+            status=task.status,
+        )
+
     db.commit()
     db.refresh(task)
     return task
@@ -317,6 +437,14 @@ def delete_task(
 ):
     """Remove a task after verifying the user may access it."""
     task = ensure_task_access(task_id, db, current_user)
+    log_task_activity(
+        db,
+        user=current_user,
+        project=task.project,
+        task=task,
+        action="deleted",
+        status=task.status,
+    )
     db.delete(task)
     db.commit()
 

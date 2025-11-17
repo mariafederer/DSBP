@@ -5,6 +5,14 @@
   box-sizing: border-box;
 }
 
+:root {
+  --status-color-new_task: #facc15;
+  --status-color-scheduled: #fb923c;
+  --status-color-in_progress: #f97316;
+  --status-color-completed: #8b5cf6;
+  --status-color-default: #94a3b8;
+}
+
 body {
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
   background: #f5f7fa;
@@ -903,6 +911,210 @@ body {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
   gap: 20px;
+}
+
+.analytics-grid {
+  margin-top: 20px;
+}
+
+.status-chart-row {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  flex-wrap: wrap;
+}
+
+#status-donut-chart {
+  max-width: 220px;
+  max-height: 220px;
+}
+
+.status-legend {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.status-legend li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 14px;
+  color: #0f172a;
+  padding-bottom: 6px;
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.status-label {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.status-dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  display: inline-flex;
+}
+
+.status-dot.new_task {
+  background: var(--status-color-new_task);
+}
+
+.status-dot.scheduled {
+  background: var(--status-color-scheduled);
+}
+
+.status-dot.in_progress {
+  background: var(--status-color-in_progress);
+}
+
+.status-dot.completed {
+  background: var(--status-color-completed);
+}
+
+.status-dot.default {
+  background: var(--status-color-default);
+}
+
+.status-value {
+  font-weight: 600;
+  color: #0f172a;
+}
+
+.calendar-card {
+  display: flex;
+  flex-direction: column;
+}
+
+.calendar-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.calendar-header button {
+  border: none;
+  background: #e2e8f0;
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  font-size: 18px;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.calendar-header button:hover {
+  background: #cbd5f5;
+}
+
+.calendar-weekdays,
+.calendar-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 6px;
+  text-align: center;
+}
+
+.calendar-weekdays span {
+  font-size: 12px;
+  font-weight: 600;
+  color: #475569;
+}
+
+.calendar-grid {
+  margin-top: 10px;
+}
+
+.calendar-day {
+  padding: 10px 0;
+  border-radius: 10px;
+  font-weight: 500;
+  color: #0f172a;
+  cursor: pointer;
+  transition: all 0.2s;
+  position: relative;
+}
+
+.calendar-day.disabled {
+  opacity: 0.3;
+  cursor: default;
+}
+
+.calendar-day.has-activity::after {
+  content: "";
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #6366f1;
+  position: absolute;
+  bottom: 6px;
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+.calendar-day.selected {
+  background: #1e293b;
+  color: white;
+}
+
+.history-card {
+  margin-top: 20px;
+}
+
+.history-list {
+  margin-top: 16px;
+  max-height: 320px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding-right: 6px;
+}
+
+.history-entry {
+  padding: 12px 16px;
+  border-radius: 10px;
+  background: #f8fafc;
+  border-left: 4px solid #cbd5f5;
+}
+
+.history-entry .history-meta {
+  font-size: 12px;
+  color: #475569;
+  margin-bottom: 4px;
+}
+
+.history-entry .history-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: #0f172a;
+}
+
+.history-entry .history-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: #475569;
+  margin-top: 6px;
+}
+
+.history-entry .history-status .status-dot {
+  width: 10px;
+  height: 10px;
+}
+
+.history-list .empty-state {
+  text-align: center;
+  color: #94a3b8;
+  padding: 20px 0;
 }
 
 .dashboard-card {

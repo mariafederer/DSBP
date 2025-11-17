@@ -139,6 +139,43 @@
               </form>
             </section>
           </div>
+
+          <div class="dashboard-grid analytics-grid">
+            <section class="dashboard-card status-card">
+              <div class="card-header">
+                <h2>Task Status Overview</h2>
+                <p id="status-summary-total" class="dashboard-note">Total tasks: 0</p>
+              </div>
+              <div class="status-chart-row">
+                <canvas id="status-donut-chart" width="220" height="220"></canvas>
+                <ul id="status-legend" class="status-legend"></ul>
+              </div>
+            </section>
+
+            <section class="dashboard-card calendar-card">
+              <div class="calendar-header">
+                <button type="button" id="history-calendar-prev" aria-label="Previous month">‹</button>
+                <div id="history-month-label">Month</div>
+                <button type="button" id="history-calendar-next" aria-label="Next month">›</button>
+              </div>
+              <div class="calendar-weekdays">
+                <span>Su</span><span>Mo</span><span>Tu</span><span>We</span><span>Th</span><span>Fr</span><span>Sa</span>
+              </div>
+              <div id="history-calendar-grid" class="calendar-grid"></div>
+            </section>
+          </div>
+
+          <section class="dashboard-card history-card">
+            <div class="history-header">
+              <div>
+                <h2>Task History</h2>
+                <p id="history-selected-date" class="dashboard-note">Select a date to see your activity.</p>
+              </div>
+            </div>
+            <div id="history-list" class="history-list">
+              <div class="empty-state">Select a date with history to view your task actions.</div>
+            </div>
+          </section>
         </div>
 
         <div id="dependency-view" class="dependency-view hidden">

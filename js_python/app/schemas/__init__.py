@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import List, Literal, Optional
+from typing import Dict, List, Literal, Optional
 
 from pydantic import BaseModel, ConfigDict, EmailStr, Field
 
@@ -166,3 +166,26 @@ class NotificationOut(BaseModel):
     task_title: Optional[str] = None
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class TaskActivityOut(BaseModel):
+    id: int
+    action: Literal["created", "deleted", "status_changed"]
+    status: Optional[str] = None
+    task_id: Optional[int] = None
+    task_title: Optional[str] = None
+    created_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class ProjectDashboardOut(BaseModel):
+    project_id: int
+    total_tasks: int
+    status_counts: Dict[str, int]
+    updated_at: datetime
+
+
+class TaskHistoryResponse(BaseModel):
+    activities: List[TaskActivityOut]
+    daily_counts: Dict[str, int]

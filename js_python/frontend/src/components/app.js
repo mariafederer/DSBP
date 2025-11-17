@@ -1455,6 +1455,11 @@ let dependencyMapData = null;
 let dependencyDataLoaded = false;
 let notifications = [];
 let notificationsLoaded = false;
+let dashboardMetrics = null;
+let historyMonthCursor = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
+let historyActivitiesByDay = {};
+let historyDailyCounts = {};
+let selectedHistoryDate = null;
 
 // DOM Elements
 const currentUsernameEl = document.getElementById("current-username");
@@ -1490,6 +1495,37 @@ const dependencyDependentSelect = document.getElementById("dependency-dependent"
 const dependencyDependsOnSelect = document.getElementById("dependency-depends-on");
 const dependencyStatusText = document.getElementById("dependency-status-text");
 const btnSaveSettings = document.getElementById("btn-save-settings"); // Added this
+const statusDonutCanvas = document.getElementById("status-donut-chart");
+const statusLegend = document.getElementById("status-legend");
+const statusSummaryTotal = document.getElementById("status-summary-total");
+const historyListContainer = document.getElementById("history-list");
+const historySelectedDateText = document.getElementById("history-selected-date");
+const historyCalendarGrid = document.getElementById("history-calendar-grid");
+const historyMonthLabel = document.getElementById("history-month-label");
+const historyPrevBtn = document.getElementById("history-calendar-prev");
+const historyNextBtn = document.getElementById("history-calendar-next");
+
+if (historyPrevBtn) {
+  historyPrevBtn.addEventListener("click", () => {
+    historyMonthCursor = new Date(historyMonthCursor.getFullYear(), historyMonthCursor.getMonth() - 1, 1);
+    if (currentProject) {
+      loadHistoryForMonth(currentProject.id);
+    } else {
+      renderHistoryCalendar();
+    }
+  });
+}
+
+if (historyNextBtn) {
+  historyNextBtn.addEventListener("click", () => {
+    historyMonthCursor = new Date(historyMonthCursor.getFullYear(), historyMonthCursor.getMonth() + 1, 1);
+    if (currentProject) {
+      loadHistoryForMonth(currentProject.id);
+    } else {
+      renderHistoryCalendar();
+    }
+  });
+}
 
 // Modals
 const modalCreateProject = document.getElementById("modal-create-project");
@@ -1663,6 +1699,277 @@ function renderDashboardProjectInfo() {
   }
 }
 
+const STATUS_LABELS = {
+  new_task: "New task",
+  scheduled: "Scheduled",
+  in_progress: "In progress",
+  completed: "Completed",
+};
+
+function getStatusLabel(status) {
+  if (!status) return "Unknown";
+  return STATUS_LABELS[status] || status.replace(/_/g, " ");
+}
+
+function getStatusColorHex(status) {
+  const colors = {
+    new_task: "#facc15",
+    scheduled: "#fb923c",
+    in_progress: "#f97316",
+    completed: "#8b5cf6",
+    default: "#94a3b8",
+  };
+  return colors[status] || colors.default;
+}
+
+async function loadProjectDashboardMetrics(projectId) {
+  if (!projectId) return;
+  try {
+    dashboardMetrics = await apiRequest(`/projects/${projectId}/dashboard`);
+    renderStatusOverview();
+  } catch (error) {
+    console.error("Failed to load dashboard metrics:", error);
+  }
+}
+
+function renderStatusOverview() {
+  if (!statusLegend || !statusSummaryTotal) return;
+
+  const counts = (dashboardMetrics && dashboardMetrics.status_counts) || {};
+  const total = dashboardMetrics ? dashboardMetrics.total_tasks : 0;
+  statusSummaryTotal.textContent = `Total tasks: ${total}`;
+
+  const preferredOrder = ["new_task", "scheduled", "in_progress", "completed"];
+  const extraStatuses = Object.keys(counts).filter((key) => !preferredOrder.includes(key));
+  const orderedStatuses = [...preferredOrder, ...extraStatuses];
+
+  if (orderedStatuses.length === 0) {
+    statusLegend.innerHTML = `
+      <li>
+        <span class="status-label">
+          <span class="status-dot default"></span>No tasks yet
+        </span>
+        <span class="status-value">0</span>
+      </li>
+    `;
+    drawStatusDonutChart({});
+    return;
+  }
+
+  statusLegend.innerHTML = orderedStatuses
+    .map((status) => {
+      const count = counts[status] || 0;
+      const percent = total ? Math.round((count / total) * 100) : 0;
+      return `
+        <li>
+          <span class="status-label">
+            <span class="status-dot ${status || "default"}"></span>${getStatusLabel(status)}
+          </span>
+          <span class="status-value">${count}${total ? ` (${percent}%)` : ""}</span>
+        </li>
+      `;
+    })
+    .join("");
+
+  drawStatusDonutChart(counts);
+}
+
+function drawStatusDonutChart(counts = {}) {
+  if (!statusDonutCanvas) return;
+  const ctx = statusDonutCanvas.getContext("2d");
+  const total = Object.values(counts).reduce((sum, value) => sum + value, 0);
+  const { width, height } = statusDonutCanvas;
+  const centerX = width / 2;
+  const centerY = height / 2;
+  const radius = Math.min(width, height) / 2 - 10;
+
+  ctx.clearRect(0, 0, width, height);
+
+  if (!total) {
+    ctx.beginPath();
+    ctx.arc(centerX, centerY, radius, 0, Math.PI * 2);
+    ctx.fillStyle = "#e2e8f0";
+    ctx.fill();
+  } else {
+    let startAngle = -Math.PI / 2;
+    const entries = Object.entries(counts);
+    entries.forEach(([status, count]) => {
+      if (!count) return;
+      const slice = (count / total) * Math.PI * 2;
+      ctx.beginPath();
+      ctx.moveTo(centerX, centerY);
+      ctx.arc(centerX, centerY, radius, startAngle, startAngle + slice);
+      ctx.closePath();
+      ctx.fillStyle = getStatusColorHex(status);
+      ctx.fill();
+      startAngle += slice;
+    });
+  }
+
+  // Inner circle for donut effect
+  ctx.beginPath();
+  ctx.arc(centerX, centerY, radius * 0.55, 0, Math.PI * 2);
+  ctx.fillStyle = "#fff";
+  ctx.fill();
+}
+
+function formatDateKey(date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+function formatFullDateLabel(dateKey) {
+  const [year, month, day] = dateKey.split("-").map(Number);
+  const date = new Date(year, month - 1, day);
+  return date.toLocaleDateString(undefined, {
+    weekday: "long",
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+  });
+}
+
+function formatTimeLabel(isoString) {
+  return new Date(isoString).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+}
+
+function describeActivity(activity) {
+  const statusLabel = getStatusLabel(activity.status);
+  switch (activity.action) {
+    case "created":
+      return `Created ${statusLabel}`;
+    case "deleted":
+      return `Deleted ${statusLabel}`;
+    case "status_changed":
+      return `Moved to ${statusLabel}`;
+    default:
+      return "Updated task";
+  }
+}
+
+function getFirstHistoryDateKey() {
+  const keys = Object.keys(historyActivitiesByDay);
+  if (keys.length === 0) {
+    return formatDateKey(new Date(historyMonthCursor));
+  }
+  return keys.sort().pop();
+}
+
+function renderHistoryCalendar() {
+  if (!historyCalendarGrid || !historyMonthLabel) return;
+
+  historyCalendarGrid.innerHTML = "";
+  const firstDay = new Date(historyMonthCursor.getFullYear(), historyMonthCursor.getMonth(), 1);
+  const daysInMonth = new Date(historyMonthCursor.getFullYear(), historyMonthCursor.getMonth() + 1, 0).getDate();
+  const startWeekday = firstDay.getDay();
+
+  for (let i = 0; i < startWeekday; i += 1) {
+    const placeholder = document.createElement("div");
+    placeholder.className = "calendar-day disabled";
+    historyCalendarGrid.appendChild(placeholder);
+  }
+
+  for (let day = 1; day <= daysInMonth; day += 1) {
+    const date = new Date(historyMonthCursor.getFullYear(), historyMonthCursor.getMonth(), day);
+    const key = formatDateKey(date);
+    const dayEl = document.createElement("div");
+    dayEl.className = "calendar-day";
+    dayEl.textContent = day;
+
+    if (historyDailyCounts[key]) {
+      dayEl.classList.add("has-activity");
+    }
+    if (selectedHistoryDate === key) {
+      dayEl.classList.add("selected");
+    }
+
+    dayEl.addEventListener("click", () => {
+      selectedHistoryDate = key;
+      renderHistoryCalendar();
+      renderHistoryList();
+    });
+
+    historyCalendarGrid.appendChild(dayEl);
+  }
+
+  historyMonthLabel.textContent = historyMonthCursor.toLocaleDateString(undefined, {
+    month: "long",
+    year: "numeric",
+  });
+}
+
+function renderHistoryList() {
+  if (!historyListContainer || !historySelectedDateText) return;
+
+  if (!selectedHistoryDate) {
+    historySelectedDateText.textContent = "Select a date to see your activity.";
+    historyListContainer.innerHTML = '<div class="empty-state">No date selected.</div>';
+    return;
+  }
+
+  historySelectedDateText.textContent = formatFullDateLabel(selectedHistoryDate);
+  const activities = historyActivitiesByDay[selectedHistoryDate] || [];
+
+  if (activities.length === 0) {
+    historyListContainer.innerHTML = '<div class="empty-state">No task changes for this day.</div>';
+    return;
+  }
+
+  historyListContainer.innerHTML = "";
+  activities.forEach((activity) => {
+    const entry = document.createElement("div");
+    entry.className = "history-entry";
+    entry.innerHTML = `
+      <div class="history-meta">${formatTimeLabel(activity.created_at)} · ${describeActivity(activity)}</div>
+      <div class="history-title">${escapeHtml(activity.task_title || "Untitled task")}</div>
+      <div class="history-status">
+        <span class="status-dot ${(activity.status || "default")}"></span>
+        <span>${getStatusLabel(activity.status)}</span>
+      </div>
+    `;
+    historyListContainer.appendChild(entry);
+  });
+}
+
+async function loadHistoryForMonth(projectId) {
+  if (!projectId || !historyCalendarGrid) return;
+  try {
+    const start = new Date(historyMonthCursor.getFullYear(), historyMonthCursor.getMonth(), 1);
+    const end = new Date(historyMonthCursor.getFullYear(), historyMonthCursor.getMonth() + 1, 0);
+    const params = new URLSearchParams({
+      start_date: formatDateKey(start),
+      end_date: formatDateKey(end),
+    });
+    const response = await apiRequest(`/projects/${projectId}/task-history?${params.toString()}`);
+    historyDailyCounts = response.daily_counts || {};
+    historyActivitiesByDay = {};
+    (response.activities || []).forEach((activity) => {
+      const key = formatDateKey(new Date(activity.created_at));
+      if (!historyActivitiesByDay[key]) {
+        historyActivitiesByDay[key] = [];
+      }
+      historyActivitiesByDay[key].push(activity);
+    });
+    if (!selectedHistoryDate || !historyActivitiesByDay[selectedHistoryDate]) {
+      selectedHistoryDate = Object.keys(historyActivitiesByDay).length > 0 ? getFirstHistoryDateKey() : formatDateKey(new Date(historyMonthCursor));
+    }
+    renderHistoryCalendar();
+    renderHistoryList();
+  } catch (error) {
+    console.error("Failed to load task history:", error);
+  }
+}
+
+async function refreshDashboardAnalytics({ reloadHistory = true } = {}) {
+  if (!currentProject) return;
+  await loadProjectDashboardMetrics(currentProject.id);
+  if (reloadHistory) {
+    await loadHistoryForMonth(currentProject.id);
+  }
+}
+
 // Select Project
 async function selectProject(projectId) {
   currentProject = allProjects.find((p) => p.id === projectId);
@@ -1672,6 +1979,13 @@ async function selectProject(projectId) {
   await loadTasks(projectId);
   renderDashboardProjectInfo();
   populateProjectSettingsForm();
+  historyMonthCursor = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
+  selectedHistoryDate = null;
+  historyActivitiesByDay = {};
+  historyDailyCounts = {};
+  renderHistoryCalendar();
+  renderHistoryList();
+  await refreshDashboardAnalytics();
   
   // If taskboard is active, re-render it
   if (taskboardView && !taskboardView.classList.contains("hidden")) {
@@ -1957,6 +2271,7 @@ async function updateTaskStatus(newStatus) {
     
     renderTaskBoard();
     renderTaskDetail();
+    await refreshDashboardAnalytics();
   } catch (error)
   {
     alert("Failed to update task status: " + error.message);
@@ -2001,6 +2316,7 @@ async function deleteTask() {
     allTasks = allTasks.filter(t => t.id !== currentTask.id);
     
     renderTaskBoard();
+    await refreshDashboardAnalytics();
     dependencyDataLoaded = false; // Dependencies will change
     closeTaskDetail();
   } catch (error) {
@@ -2236,6 +2552,7 @@ async function createTask(formData) {
     });
 
     await loadTasks(currentProject.id);
+    await refreshDashboardAnalytics();
     dependencyDataLoaded = false;
     hideModal(modalAddTask);
 

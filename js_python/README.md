@@ -197,6 +197,17 @@ pip install -r requirements.txt
 
 ## 数据库管理
 
+### 更新数据库结构
+
+最新版本新增了任务历史记录表 `task_activities`。如果您在升级代码后遇到“表不存在”等错误，请先停止服务器并运行重置脚本：
+
+```bash
+reset_db.bat   # Windows
+./reset_db.sh  # Linux/Mac
+```
+
+⚠️ 重置会清空当前 SQLite 数据，请在生产环境使用前备份 `data/dsbp.db`。
+
 ### 重置数据库
 ```bash
 # 停止服务器 (Ctrl+C)
